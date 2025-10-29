@@ -6,7 +6,7 @@ Most of the important info is in project description :)
  - Namespaces
  - Module system (just like in rust)
  - UXN compilation target
- - Full C compatible
+ - Fully C compatible
 
 Example:
 ```C
