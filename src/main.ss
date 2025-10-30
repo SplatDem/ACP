@@ -1,24 +1,26 @@
+#!/usr/bin/chezscheme --script
+
 ;; Compiler written in Chez scheme
 
 (import (chezscheme))
 (import (rnrs))
 
 (load "./defines.ss")
+(load "./tokenizer.ss")
 
 (define args (command-line))
 
 (display args)
 (newline)
 
-(define usage (string-append "Usage: " (car args) " <input.acp>" " <output> " "<target>\n"))
+(define (print-usage-and-exit) (trace-log-error (string-append "Usage: " (car args) " <input.acp>" " <output> " "<target>\n")) (exit EXIT_FAILURE))
+
+(if (< (length args) 3)
+  (print-usage-and-exit))
 
 (if (null? (cdr args))
-  (begin
-  (display "[ERROR]: Wrong arguments\n")
-  (display usage)
-  (exit EXIT_FAILURE)
-  (newline))
-  (display "Args... Ok\n")) ;; TODO: Normal logging
+  (print-usage-and-exit)
+  (trace-log-info "Args... Ok\n"))
 
 ;; 1. Tokenize input source code
 ;; 2. Put the tokenized result to the ast generator
