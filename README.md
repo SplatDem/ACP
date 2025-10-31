@@ -18,6 +18,12 @@ pub int main(void) {
 }
 ```
 
+> ![NOTE]
+> At this moment, it's just a LL compiler,
+> but what if some project written in ACP
+> is too big for this parsing method.
+> TODO: Improve parsing algorithm
+
 # BTW
 I'm reading the book about Compilers and related stuff, so here I going to put some usefull data:
  - Book: https://github.com/muthukumarse/books/blob/master/Dragon%20Book%20Compilers%20Principle%20Techniques%20and%20Tools%202nd%20Edtion.pdf
