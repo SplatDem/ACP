@@ -26,7 +26,7 @@
   (define (skip-whitespace)
     (let loop ()
       (when (and (< position src-len)
-		 (char-whitespace? (current-char)))
+		(char-whitespace? (current-char)))
 	(next-char)
 	(loop))))
 
@@ -47,18 +47,28 @@
   ;; true if current char is a dot.
   ;; Then returning number with type
   (define (parse-number) 
-    (let ((start-position
-	    (has-dot #f))
-	  (let loop () ;; Weird shit
-	    (cond 
-	      ((char-numeric? (current-char))
-	       (next-char)
-	       (loop))
-	      ((and (char=? (current-char #\.) (not has-dot))
-		    (set! has-dot #t)
-		    (next-char)
-		    (loop))
-	       (else
-		 (let ((num-str (substring src start position)))
-		   (add-token (if has-dot 'FLOAT 'INTEGER) num-str)))))))))
-tokens))
+    (let ((start-position position)
+	   (has-dot #f))
+	 (let loop () ;; Weird shit
+	   (cond 
+	     ((char-numeric? (current-char))
+	      (next-char)
+	      (loop))
+	     ((and (char=? (current-char) #\.) (not has-dot))
+		   (set! has-dot #t)
+		   (next-char)
+		   (loop))
+	      (else
+		(let ((num-str (substring src start-position position)))
+		  (add-token (if has-dot 'FLOAT 'INTEGER) num-str)))))))
+
+  (define (main-loop)
+    (skip-whitespace)
+    (when (char-numeric? (current-char))
+      (parse-number)
+      (main-loop)))
+
+  (main-loop)
+  
+  ;; Return tokens
+  (reverse tokens)))

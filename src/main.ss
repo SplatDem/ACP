@@ -33,5 +33,27 @@
          (output (code-gen ir target))) ;; TODO
   output))
 
-(display (string-append "Compiling ACP code to " (list-ref args 3)))
+(trace-log-info (string-append "Compiling ACP code to " (list-ref args 3)))
 (newline)
+
+(trace-log-debug "Running tests...\n")
+(define (do-tests)
+  (define (tokenizer-test)
+    (trace-log-debug "Testing tokenizer with numbers:\n")
+    (trace-log-debug "TYPE | VALUE | SIZE\n")
+    (trace-log-debug "INEGER TEST:\n")
+    (display (tokenize "1488"))
+    (newline)
+    (trace-log-debug "FLOAT TEST:\n")
+    (display (tokenize "14.88"))
+    (newline)
+    (trace-log-debug "BOTH INT AND FLOAT TEST:\n")
+    (display (tokenize "1488 14.88"))
+    (newline)
+    (trace-log-debug "FROM ARGC 1 TEST:\n")
+    (display (tokenize (list-ref args 1)))
+    (newline))
+  
+  (tokenizer-test))
+
+(do-tests)
