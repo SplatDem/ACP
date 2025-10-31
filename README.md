@@ -18,7 +18,7 @@ pub int main(void) {
 }
 ```
 
-> ![NOTE]
+> [!NOTE]
 > At this moment, it's just a LL compiler,
 > but what if some project written in ACP
 > is too big for this parsing method.
