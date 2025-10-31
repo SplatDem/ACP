@@ -62,13 +62,48 @@
 		(let ((num-str (substring src start-position position)))
 		  (add-token (if has-dot 'FLOAT 'INTEGER) num-str)))))))
 
+  (define (parse-identifire-or-keyword)
+    (let ((start-position position))
+      (let loop ()
+	(skip-whitespace)
+	(when (or (char-alphabetic? (current-char))
+		  (char-numeric? (current-char))
+		  (char=? (current-char) #\_))
+	  (next-char)
+	  (loop)))
+      (let ((ident (substring src start-position position)))
+	(add-token
+	  (cond
+	    ((member ident '("int" "float" "double" "char" "void" "unsigned" "short" "signed" "long")) 'TYPE)
+	    ((member ident '("if" "else" "while" "for" "do" "switch" "case" "default" "break" "continue" "return" "goto")) 'KEYWORD)
+	    ((member ident '("const" "static" "extern" "register" "volatile")) 'STORAGE_CLASS)
+	    ((member ident '("struct" "enum" "union" "typedef")) 'STRUCTURE_KEYWORD)
+	    ((member ident '("sizeof")) 'OPERATOR)
+	    (else 'IDENTIFIER))
+	  ident))))
+
   (define (main-loop)
-    (skip-whitespace)
-    (when (char-numeric? (current-char))
-      (parse-number)
-      (main-loop)))
+   (skip-whitespace)
+   (cond
+     ((>= position src-len) 'done)
+     
+     ((char-numeric? (current-char))
+      (parse-number))
+     
+     ((or (char-alphabetic? (current-char))
+          (char=? (current-char) #\_))
+      (parse-identifire-or-keyword))
+     
+     ;; Other parsers here
+     
+     (else
+      (next-char)
+      (add-token 'UNKNOWN (string (current-char)))))
+   
+   (when (< position src-len)
+     (main-loop)))
 
   (main-loop)
-  
+
   ;; Return tokens
   (reverse tokens)))

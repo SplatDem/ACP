@@ -52,7 +52,12 @@
     (newline)
     (trace-log-debug "FROM ARGC 1 TEST:\n")
     (display (tokenize (list-ref args 1)))
-    (newline))
+    (newline)
+    (trace-log-debug "Testing tokenizer with identifiers and keyword:\n")
+    (display (tokenize "int main return 0;"))
+    (newline)
+    (trace-log-debug "Real code:\n")
+    (display (tokenize "typedef struct A { int a; } A; int main() { A a = { .a = 0; }; return a.a; }")))
   
   (tokenizer-test))
 
