@@ -40,7 +40,8 @@
 (define (do-tests)
   (define (tokenizer-test)
     (trace-log-debug "Testing tokenizer with numbers:")
-    (trace-log-debug "TYPE | VALUE | \033[9m\033[2mPOSITION\033[0m")
+    ;; (trace-log-debug "TYPE | VALUE | \033[9m\033[2mPOSITION\033[0m")
+    (trace-log-debug "TYPE | VALUE | POSITION")
     (trace-log-debug "INEGER TEST:")
     (display (tokenize "1488"))
     (newline)
@@ -57,11 +58,11 @@
     (display (tokenize "int main return 0;"))
     (newline)
     (trace-log-debug "Real code:")
-    (display (tokenize "typedef struct A { int a; } A;
-		       int main() {
-		       	 A a = { .a = 0; };
-			 return a.a;
-		       }")))
+    (display (tokenize "pub typedef struct A { int a; } A;
+		        pub int main() {
+		       	  A a = { .a = 0; };
+		          return a.a;
+		        }")))
   
   (tokenizer-test))
 

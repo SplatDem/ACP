@@ -39,7 +39,7 @@
   ;; list and returning new list
   (define (add-token type value)
     ;; (set! tokens (cons (list type value position) tokens))) Maybe just don't return the position
-    (set! tokens (cons (list type value) tokens)))
+    (set! tokens (cons (list type value position) tokens)))
 
   ;; Here is a couple of functions to define a token type
 
@@ -77,7 +77,7 @@
 	(add-token
 	 (cond
 	   ((member ident '("int" "float" "double" "char" "void" "unsigned" "short" "signed" "long")) 'TYPE)
-	   ((member ident '("if" "else" "while" "for" "do" "switch" "case" "default" "break" "continue" "return" "goto" "as" "import")) 'KEYWORD)
+	   ((member ident '("if" "else" "while" "for" "do" "switch" "case" "default" "break" "continue" "return" "goto" "as" "import" "pub")) 'KEYWORD)
 	   ((member ident '("const" "static" "extern" "register" "volatile")) 'STORAGE_CLASS)
 	   ((member ident '("struct" "enum" "union" "typedef")) 'STRUCTURE_KEYWORD)
 	   ((member ident '("sizeof")) 'OPERATOR)

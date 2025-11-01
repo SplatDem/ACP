@@ -1,0 +1,36 @@
+Import declaration:
+import     stdio          as        io;
+   ^          ^           ^         ^
+import kw  module name  alaias kw  alias name
+
+Function declaration:
+pub       int     main   ()
+ ^         ^       ^     ^
+access  ret type  name  args
+Function body:
+{
+	io      .    puts     ("String literal");
+	^       ^      ^      ^
+    namespace  skip  member  args
+
+	return    0     ;
+	^         ^     ^
+    return kw  ineger  skip
+}
+
+AST:
+Module:
+  - Name: stdio
+  - Alias: io
+Function:
+  - Public: true
+  - Type: int
+  - Name: main
+  - Args: NULL
+  - Body:
+    - Fn call:
+      - Namespace: io
+      - Member: puts
+      - Args: [String: "String literal"]
+    - Keyword return:
+      - Integer: 0
