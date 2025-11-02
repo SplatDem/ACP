@@ -181,7 +181,7 @@
 	((#\{ ) (next-char) (add-token 'PUNCTUATION "{"))
 	((#\} ) (next-char) (add-token 'PUNCTUATION "}"))
 	(else (next-char) (add-token 'UNKNOWN (string ch))))))
-
+  
   ;; Skip comments
   (define (skip-comment)
     (let ((ch (current-char))

@@ -8,6 +8,8 @@
 (load "./defines.ss")
 (load "./tokenizer.ss")
 
+(load "./parser.ss")
+
 (define args (command-line))
 
 (display args)
