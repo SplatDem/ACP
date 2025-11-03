@@ -1,19 +1,2 @@
-{-# LANGUAGE OverloadedStrings #-}
-
-import Data.Text (Text) 
-
-keyword :: [String]
-keyword = ["]
-
-lex :: Parse [Tokens] -- Returns parser function with accepts token list btw
-
-data Token =
-  Number Int
-  | String String
-  | StringLit String
-  | NumberLit 
-  | EOF
-  deriving (Show, Eq)
-
 main :: IO ()
 main = putStrLn "Compiling ACP to C code (kinda)"
