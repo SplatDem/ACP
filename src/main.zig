@@ -1,6 +1,8 @@
 const std = @import("std");
 const logger = @import("logger.zig");
 
+const lexer = @import("lex.zig");
+
 pub fn main() !void {
     var argsIter = std.process.ArgIterator.init();
     defer argsIter.deinit();
@@ -35,4 +37,12 @@ pub fn main() !void {
     }
 
     logger.traceLogDebug("Compiling {s} to output: {s}\n", .{input_file.?, output orelse "a.out"});
+
+    // Proc - keyword
+    // main - identifier
+    // '--' - separator between function arguments and returned type
+    // {} - function body
+    // 0 ret; - push 0 to stack and apply return function
+    const testCode = "proc main -- int { 0 ret; }";
+    _ = try lexer.lex(testCode);
 }
