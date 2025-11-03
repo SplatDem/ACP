@@ -3,7 +3,7 @@
 import Data.Text (Text) 
 
 keyword :: [String]
-keyword = ["]
+keyword = ["pub", "import"]
 
 lex :: Parse [Tokens] -- Returns parser function with accepts token list btw
 

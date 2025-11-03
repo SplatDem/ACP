@@ -17,6 +17,33 @@ pub int main(void) {
     return 0;
 }
 ```
+Or
+```C
+import stdio as io;
+
+pub fn main() int {
+	io.pust("Not much familiar with C, but still similar");
+	return 0;
+}
+```
+Or even concatinative
+```C
+module CustomModule;
+
+proc add int int -- int {
+    x y let;
+    x y + ret;
+}
+```
+```C
+import std.io;
+import CustomModule as mod;
+
+proc main  -- int {
+	"Not C at all" io.puts;
+	14 88 mod.add ret;
+}
+```
 
 > [!NOTE]
 > At this moment, it's just a LL compiler,
