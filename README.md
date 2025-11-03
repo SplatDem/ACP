@@ -25,10 +25,10 @@ pub int main(void) {
 > TODO: Improve parsing algorithm
 
 ## TODO:
- - [ ] Parser
- - [ ] C generator
- - [ ] Unxtal generator (or uxn bytecode)
- - [ ] Fix preprocessor
+ - [ ] Basic compiler
+ - [ ] Turing complite
+ - [ ] C target
+ - [ ] Uxntal (or uxn bytecode) target
 
 # BTW
 I'm reading the book about Compilers and related stuff, so here I going to put some usefull data:
