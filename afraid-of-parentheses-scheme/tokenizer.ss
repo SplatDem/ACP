@@ -3,7 +3,7 @@
 ;; functions just for better understanding
 ;; of how to use scheme
 
-(load "./defines.ss")
+(load "defines.ss")
 
 (define (tokenize src)
   (let ((tokens '())
@@ -214,6 +214,17 @@
 	    (loop)))))
        (else #f))))
 
+  (define (parse-preprocessor)
+    (let ((start-position position))
+      (next-char)
+      (let loop ()
+        (unless (or (char=? (current-char) #\newline)
+                    (char=? (current-char) #\nul))
+          (next-char)
+          (loop)))
+      (let ((directive (substring src start-position position)))
+        (add-token 'PREPROCESSOR directive))))
+
   (define (main-loop)
    (skip-whitespace)
    (cond
@@ -234,10 +245,8 @@
      ((char=? (current-char) #\')
       (parse-char-literal))
 
-     ;; FIX
-     ;; Check how to write '\n' in scheme
-     ;; ((char=? (current-char) #\\n)
-     ;;  (set! line (+ line 1)))
+     ((char=? (current-char) #\#)
+      (parse-preprocessor))
 
      ;; Comments
      ((and (char=? (current-char) #\/)

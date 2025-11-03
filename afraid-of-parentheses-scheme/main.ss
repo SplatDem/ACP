@@ -64,8 +64,11 @@
 		        pub int main() {
 		       	  A a = { .a = 0; };
 		          return a.a;
-		        }")))
+		        }"))
+    (newline))
   
   (tokenizer-test))
 
 (do-tests)
+
+(parse (tokenize "int main() { return 0; }"))
