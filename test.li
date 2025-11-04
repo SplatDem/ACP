@@ -1,0 +1,33 @@
+;; .li - 'hmmm... Language Indeed'
+;; Let's abstract from classic concatinative languages
+proc add int int -- int { ;; Function accepts 2 arguments with type int and returns int value
+  [x y] let ;; 'let' function takes N values from the stack and assigning names to it.
+            ;; For example, like here.
+            ;; But if argument count is bigger then actual values count
+            ;; On a stack, program will work incorrect. (This is not rust, unsafe everywhere)
+  x y + ret ;; return x+y
+}
+
+proc main -- int {
+  [14 88] add -> result ;; As you could notice already, if some function accepts more then 1 argument,
+                        ;; then arguments puts into the square brackets `[` `]`. '->' is an assignment.
+  result print
+  0 ret
+}
+
+;; Program output: 102. Exit code: 0
+
+;; Other ideas:
+
+;; What if function can't accept more then 1 argument, but can accept a list of parameters
+proc add 'int -- int { ;; List syntax like in lisp
+  list let
+  [list 0] list-ref -> param0 ;; Reference to the element in the list. list-ref accepts a list of parameters
+  [list 1] list-ref -> param1
+  param0 param1 + ret
+}
+
+proc main -- int {
+  [14 88] add print ;; '[...]' - list
+  0 ret
+}
