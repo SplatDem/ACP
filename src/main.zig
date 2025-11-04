@@ -11,18 +11,28 @@ const Operations = enum {
     DUMP,
 };
 
+fn loadProgramFromFile(path: []const u8) ![]const u8 {
+    const file = try std.fs.cwd().openFile(path, .{});
+    defer file.close();
+    
+    return try file.readToEndAlloc(std.heap.page_allocator, std.math.maxInt(usize));
+}
+
 pub fn main() !void {
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = gpa.deinit();
+
     var argsIter = std.process.ArgIterator.init();
     defer argsIter.deinit();
 
-    const program_name = argsIter.next() orelse "program";
+    const programName = argsIter.next() orelse "program";
 
     var output: ?[]const u8 = null;
     var input_file: ?[]const u8 = null;
 
     while (argsIter.next()) |arg| {
         if (std.mem.eql(u8, arg, "--help")) {
-            logger.traceLogInfo("Usage: {s} <program.li> -o <output>\nFlags:\n\t --output | -o : Specify the output file\n", .{program_name});
+            logger.traceLogInfo("Usage: {s} <program.li> -o <output>\nFlags:\n\t --output | -o : Specify the output file\n", .{programName});
             return;
         } else if (std.mem.eql(u8, arg, "--output") or std.mem.eql(u8, arg, "-o")) {
             if (argsIter.next()) |output_value| {
@@ -40,7 +50,7 @@ pub fn main() !void {
 
     if (input_file == null) {
         logger.traceLogError("no input file specified\n", .{});
-        logger.traceLogInfo("Usage: {s} <program.li> -o <output>\n", .{program_name});
+        logger.traceLogInfo("Usage: {s} <program.li> -o <output>\n", .{programName});
         return;
     }
 
@@ -48,15 +58,19 @@ pub fn main() !void {
 
     const outputFilename = output orelse "a.out";
 
-    const program: []const i32 = &[_]i32{
-        @intFromEnum(Operations.PUSH), 14,
-        @intFromEnum(Operations.PUSH), 88,
-        @intFromEnum(Operations.PLUS),
-        @intFromEnum(Operations.DUMP),
-        @intFromEnum(Operations.PUSH), 420,
-        @intFromEnum(Operations.DUMP),
-        @intFromEnum(Operations.MINUS),
-    };
+    // const program: []const i32 = &[_]i32{
+    //     @intFromEnum(Operations.PUSH), 14,
+    //     @intFromEnum(Operations.PUSH), 88,
+    //     @intFromEnum(Operations.PLUS),
+    //     @intFromEnum(Operations.DUMP),
+    //     @intFromEnum(Operations.PUSH), 420,
+    //     @intFromEnum(Operations.PUSH), 88,
+    //     @intFromEnum(Operations.MINUS),
+    //     @intFromEnum(Operations.DUMP),
+    //     @intFromEnum(Operations.PUSH), 420,
+    //     @intFromEnum(Operations.DUMP),
+    // };
+    const program = try loadProgramFromFile(programName);
     try compileProgram(program, outputFilename);
 
     // Proc - keyword
@@ -68,7 +82,7 @@ pub fn main() !void {
     _ = try lexer.lex(testCode);
 }
 
-fn compileProgram(program: []const i32, outputFile: []const u8) !void {
+fn compileProgram(program: []const u8, outputFile: []const u8) !void {
     const file = try std.fs.cwd().createFile(outputFile, .{ .read = true });
     defer file.close();
 
@@ -118,15 +132,17 @@ fn compileProgram(program: []const i32, outputFile: []const u8) !void {
 
     for (program, 0..) |op, index| {
         if (op == @intFromEnum(Operations.PUSH)) {
-            logger.traceLogDebug("PUSH!", .{});
+            // logger.traceLogDebug("PUSH!", .{});
+            logger.traceLogDebug("0", .{});
             if (index + 1 < program.len) {
                 var buf: [32]u8 = undefined;
                 const line = try std.fmt.bufPrint(&buf, "\tpush {d}\n", .{program[index + 1]});
                 try file.writeAll(line);
             }
         } else if (op == @intFromEnum(Operations.POP)) {
-            logger.traceLogDebug("POP!", .{});
-            try file.writeAll("\tpop address huiadress\n");
+            // logger.traceLogDebug("POP!", .{});
+            logger.traceLogDebug("1", .{});
+            // try file.writeAll("\tpop address huiadress\n");
         } else if (op == @intFromEnum(Operations.PLUS)) {
             logger.traceLogDebug("PLUS!", .{});
             try file.writeAll("\n");
