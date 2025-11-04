@@ -8,6 +8,7 @@ const Operations = enum {
     POP,
     PLUS,
     MINUS,
+    DUMP,
 };
 
 pub fn main() !void {
@@ -21,7 +22,7 @@ pub fn main() !void {
 
     while (argsIter.next()) |arg| {
         if (std.mem.eql(u8, arg, "--help")) {
-            logger.traceLogInfo("Usage: {s} <program.acp> -o <output>\nFlags:\n\t --output | -o : Specify the output file\n", .{program_name});
+            logger.traceLogInfo("Usage: {s} <program.li> -o <output>\nFlags:\n\t --output | -o : Specify the output file\n", .{program_name});
             return;
         } else if (std.mem.eql(u8, arg, "--output") or std.mem.eql(u8, arg, "-o")) {
             if (argsIter.next()) |output_value| {
@@ -39,7 +40,7 @@ pub fn main() !void {
 
     if (input_file == null) {
         logger.traceLogError("no input file specified\n", .{});
-        logger.traceLogInfo("Usage: {s} <program.acp> -o <output>\n", .{program_name});
+        logger.traceLogInfo("Usage: {s} <program.li> -o <output>\n", .{program_name});
         return;
     }
 
@@ -48,10 +49,12 @@ pub fn main() !void {
     const outputFilename = output orelse "a.out";
 
     const program: []const i32 = &[_]i32{
-        @intFromEnum(Operations.PUSH),
-        @intFromEnum(Operations.POP),
-        @intFromEnum(Operations.PUSH),
+        @intFromEnum(Operations.PUSH), 14,
+        @intFromEnum(Operations.PUSH), 88,
         @intFromEnum(Operations.PLUS),
+        @intFromEnum(Operations.DUMP),
+        @intFromEnum(Operations.PUSH), 420,
+        @intFromEnum(Operations.DUMP),
         @intFromEnum(Operations.MINUS),
     };
     try compileProgram(program, outputFilename);
@@ -70,15 +73,82 @@ fn compileProgram(program: []const i32, outputFile: []const u8) !void {
     defer file.close();
 
     try file.writeAll("format ELF64 executable\n");
+    try file.writeAll("entry _start\n");
+    try file.writeAll("exit:\n");
+    try file.writeAll("\tmov rax, 60\n");
+    try file.writeAll("\tmov rdi, 0\n");
+    try file.writeAll("\tsyscall\n");
+
+    // Dump operation
+    try file.writeAll("dump:\n");
+    try file.writeAll("\tmov r9, -3689348814741910323\n");
+    try file.writeAll("\tsub rsp, 40\n");
+    try file.writeAll("\tmov BYTE [rsp+31], 10\n");
+    try file.writeAll("\tlea rcx, [rsp+30]\n");
+    try file.writeAll("dump_L2:\n");
+    try file.writeAll("\tmov rax, rdi\n");
+    try file.writeAll("\tlea r8, [rsp+32]\n");
+    try file.writeAll("\tmul r9\n");
+    try file.writeAll("\tmov rax, rdi\n");
+    try file.writeAll("\tsub r8, rcx\n");
+    try file.writeAll("\tshr rdx, 3\n");
+    try file.writeAll("\tlea rsi, [rdx+rdx*4]\n");
+    try file.writeAll("\tadd rsi, rsi\n");
+    try file.writeAll("\tsub rax, rsi\n");
+    try file.writeAll("\tadd eax, 48\n");
+    try file.writeAll("\tmov BYTE [rcx], al\n");
+    try file.writeAll("\tmov rax, rdi\n");
+    try file.writeAll("\tmov rdi, rdx\n");
+    try file.writeAll("\tmov rdx, rcx\n");
+    try file.writeAll("\tsub rcx, 1\n");
+    try file.writeAll("\tcmp rax, 9\n");
+    try file.writeAll("\tja dump_L2\n");
+    try file.writeAll("\tlea rax, [rsp+32]\n");
+    try file.writeAll("\tmov edi, 1\n");
+    try file.writeAll("\tsub rdx, rax\n");
+    try file.writeAll("\txor eax, eax\n");
+    try file.writeAll("\tlea rsi, [rsp+32+rdx]\n");
+    try file.writeAll("\tmov rdx, r8\n");
+    try file.writeAll("\tmov rax, 1\n");
+    try file.writeAll("\tsyscall\n");
+    try file.writeAll("\tadd rsp, 40\n");
+    try file.writeAll("\tret\n");
+
     try file.writeAll("_start:\n");
 
-    for (program) |op| {
+    for (program, 0..) |op, index| {
         if (op == @intFromEnum(Operations.PUSH)) {
             logger.traceLogDebug("PUSH!", .{});
-            try file.writeAll("\tpush rax huiaks\n");
+            if (index + 1 < program.len) {
+                var buf: [32]u8 = undefined;
+                const line = try std.fmt.bufPrint(&buf, "\tpush {d}\n", .{program[index + 1]});
+                try file.writeAll(line);
+            }
         } else if (op == @intFromEnum(Operations.POP)) {
             logger.traceLogDebug("POP!", .{});
             try file.writeAll("\tpop address huiadress\n");
+        } else if (op == @intFromEnum(Operations.PLUS)) {
+            logger.traceLogDebug("PLUS!", .{});
+            try file.writeAll("\n");
+            try file.writeAll("\t;; Plus\n");
+            try file.writeAll("\tpop rax\n");
+            try file.writeAll("\tpop rbx\n");
+            try file.writeAll("\tadd rax, rbx\n");
+            try file.writeAll("\tpush rax\n");
+        } else if (op == @intFromEnum(Operations.MINUS)) {
+            try file.writeAll("\n");
+            try file.writeAll("\t;; Minus\n");
+            try file.writeAll("\tpop rax\n");
+            try file.writeAll("\tpop rbx\n");
+            try file.writeAll("\tsub rbx, rax\n");
+            try file.writeAll("\tpush rbx\n");
+        } else if (op == @intFromEnum(Operations.DUMP)) {
+            try file.writeAll("\t;; Dump\n");
+            try file.writeAll("\tpop rdi\n");
+            try file.writeAll("\tcall dump\n");
         }
     }
+
+    try file.writeAll("\n");
+    try file.writeAll("\tjmp exit\n");
 }
