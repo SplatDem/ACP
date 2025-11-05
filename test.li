@@ -1,4 +1,4 @@
-;; .li - 'hmmm... Language Indeed'
+;; .li - 'hmmm... Language Indeed' (but not really concatinative)
 ;; Let's abstract from classic concatinative languages
 proc add int int -- int { ;; Function accepts 2 arguments with type int and returns int value
   [x y] let ;; 'let' function takes N values from the stack and assigning names to it.
