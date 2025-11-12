@@ -135,6 +135,7 @@ translate_token (char *token)
   else if (!strcmp (token, "!=")) return OP_NEQ;
   else if (!strcmp (token, "<=")) return OP_LTE;
   else if (!strcmp (token, ">=")) return OP_GTE;
+  else if (!strcmp (token, "!")) return OP_NOT;
   else if (!strcmp (token, ".")) return OP_DUMP;
   else if (!strcmp (token, "swap")) return OP_SWAP;
   else if (!strcmp (token, "drop")) return OP_DROP;
@@ -146,7 +147,7 @@ translate_token (char *token)
 }
 
 static signed int if_counter = 0;
-static signed int cmp_counter = 0;
+static signed int not_counter = 0;
 
 void
 compile (FILE* output_file, char *token)
@@ -166,20 +167,29 @@ compile (FILE* output_file, char *token)
     case OP_MINUS:
     {
       fputs ("\n"
+             "\tpop rbx\n"
+             "\tpop rax\n"
+             "\tsub rax, rbx\n"
+             "\tpush rax\n", output_file);
+      break;
+    }
+    case OP_MUL:
+    {
+      fputs ("\n"
              "\tpop rax\n"
              "\tpop rbx\n"
-             "\tsub rax, rbx\n"
+             "\timul rax, rbx\n"
              "\tpush rax\n", output_file);
       break;
     }
     case OP_DIV:
     {
-      fputs ("\n\t;; Division is not implemented yet\n", output_file);
-      break;
-    }
-    case OP_MUL:
-    {
-      fputs ("\n\t;; Multiplication is not implemented yet\n", output_file);
+      fputs ("\n"
+             "\tpop rbx\n"
+             "\tpop rax\n"
+             "\tcdq\n"
+             "\tidiv rbx\n"
+             "\tpush rax\n", output_file);
       break;
     }
         case OP_LT:
@@ -280,6 +290,25 @@ compile (FILE* output_file, char *token)
     }
     case OP_BEGIN:
     {
+      break;
+    }
+    case OP_NOT:
+    {
+      fprintf (output_file,
+               "\n"
+               "\tpop rax\n"
+               "\tcmp rax, 0\n"
+               "\tjne .not_zero_%d\n"
+               "\tmov rax, 1\n"
+               "\tjmp .done_not_%d\n"
+               ".not_zero_%d:\n"
+               "\tmov rax, 0\n"
+               ".done_not_%d:",
+                not_counter,
+                not_counter,
+                not_counter,
+                not_counter);
+      not_counter++;
       break;
     }
     case OP_PUSH:

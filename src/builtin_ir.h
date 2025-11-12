@@ -10,13 +10,13 @@ typedef enum operations
   OP_PLUS, OP_MINUS, OP_MUL, OP_DIV,
 
   // Stack operations
-  OP_DUMP, OP_SWAP, OP_DROP,
+  OP_DUMP, OP_SWAP, OP_DROP, OP_DUP,
 
   // Keywords
   OP_IF, OP_ELSE, OP_BEGIN, OP_END,
 
   // Logic operators
-  OP_EQ, OP_NEQ, OP_LT, OP_GT, OP_LTE, OP_GTE,
+  OP_EQ, OP_NEQ, OP_LT, OP_GT, OP_LTE, OP_GTE, OP_NOT,
 } operations;
 
 #endif
