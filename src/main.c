@@ -2,12 +2,15 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdbool.h>
-#include "builtin_ir.h"
+#include "compiler.h"
 
 #define DEFAULT_CODE_BUF_SIZE 1024
+#define MAX_LABEL_LEN 64
 
 void compile (FILE* output_file, char *token);
 void imm_mode ();
+
+bool no_banner = false;
 
 int
 main (int argc, char **argv)
@@ -22,6 +25,8 @@ main (int argc, char **argv)
   if (!strcmp(argv[1], "--imm-mode")
        || !strcmp(argv[1], "-i"))
   {
+    if (!strcmp(argv[2], "--no-banner"))
+      no_banner = true;
     imm_mode ();
   }
   
@@ -122,35 +127,36 @@ main (int argc, char **argv)
   return 0;
 }
 
-operations
-translate_token (char *token)
-{
-  if (!strcmp (token, "+")) return OP_PLUS;
-  else if (!strcmp (token, "-")) return OP_MINUS;
-  else if (!strcmp (token, "/")) return OP_DIV;
-  else if (!strcmp (token, "*")) return OP_MUL;
-  else if (!strcmp (token, "<")) return OP_LT;
-  else if (!strcmp (token, ">")) return OP_GT;
-  else if (!strcmp (token, "=")) return OP_EQ;
-  else if (!strcmp (token, "!=")) return OP_NEQ;
-  else if (!strcmp (token, "<=")) return OP_LTE;
-  else if (!strcmp (token, ">=")) return OP_GTE;
-  else if (!strcmp (token, "!")) return OP_NOT;
-  else if (!strcmp (token, ".")) return OP_DUMP;
-  else if (!strcmp (token, "swap")) return OP_SWAP;
-  else if (!strcmp (token, "drop")) return OP_DROP;
-  else if (!strcmp (token, "if")) return OP_IF;
-  else if (!strcmp (token, "else")) return OP_ELSE;
-  else if (!strcmp (token, "{")) return OP_BEGIN;
-  else if (!strcmp (token, "}")) return OP_END;
-  else return OP_PUSH;
-}
+// operations
+// translate_token (char *token)
+// {
+  // if (!strcmp (token, "+")) return OP_PLUS;
+  // else if (!strcmp (token, "-")) return OP_MINUS;
+  // else if (!strcmp (token, "/")) return OP_DIV;
+  // else if (!strcmp (token, "*")) return OP_MUL;
+  // else if (!strcmp (token, "<")) return OP_LT;
+  // else if (!strcmp (token, ">")) return OP_GT;
+  // else if (!strcmp (token, "=")) return OP_EQ;
+  // else if (!strcmp (token, "!=")) return OP_NEQ;
+  // else if (!strcmp (token, "<=")) return OP_LTE;
+  // else if (!strcmp (token, ">=")) return OP_GTE;
+  // else if (!strcmp (token, "!")) return OP_NOT;
+  // else if (!strcmp (token, ".")) return OP_DUMP;
+  // else if (!strcmp (token, "swap")) return OP_SWAP;
+  // else if (!strcmp (token, "drop")) return OP_DROP;
+  // else if (!strcmp (token, "if")) return OP_IF;
+  // else if (!strcmp (token, "else")) return OP_ELSE;
+  // else if (!strcmp (token, "{")) return OP_BEGIN;
+  // else if (!strcmp (token, "}")) return OP_END;
+  // else if (!strcmp (token, "proc")) return OP_END;
+  // else return OP_PUSH;
+// }
 
 static signed int if_counter = 0;
 static signed int not_counter = 0;
 
 void
-compile (FILE* output_file, char *token)
+compile (FILE *output_file, char *token)
 {
   int cursor = translate_token (token);
   switch (cursor)
@@ -322,13 +328,16 @@ compile (FILE* output_file, char *token)
 void
 imm_mode ()
 {
-  puts ("\033[33mWARNING\033[0m:\nThis is not an interpreter.\n"
-        "All your input compiles to native assembly\n"
-        "in fly and writes to the ./lilang_temp_output_imm_mode.asm"
-        "and lilang_temp_output_imm_mode_output.\n"
-        "1: ASCII text, 2: binary file.\n"
-        "To exit properly with this file removed, you must type\n"
-        "':exit'\n");
+  if (!no_banner)
+  {
+    puts ("\033[33mWARNING\033[0m:\nThis is not an interpreter.\n"
+          "All your input compiles to native assembly\n"
+          "in fly and writes to the ./lilang_temp_output_imm_mode.asm"
+          "and lilang_temp_output_imm_mode_output.\n"
+          "1: ASCII text, 2: binary file.\n"
+          "To exit properly with this file removed, you must type\n"
+          "':exit'\n");
+   }
 
   char *code_buf = (char *)malloc (DEFAULT_CODE_BUF_SIZE);
   if (code_buf == NULL)
@@ -367,12 +376,15 @@ imm_mode ()
             }
         }
 
-        FILE *output_file = fopen ("./lilang_temp_output_imm_mode.asm", "w");
-        if (output_file == NULL)
-        {
-          puts ("Failed to open temporary output file");
-          continue;
-        }
+       //  FILE *output_file = fopen ("./lilang_temp_output_imm_mode.asm", "w");
+       //  if (output_file == NULL)
+       //  {
+       //    puts ("Failed to open temporary output file");
+       //    continue;
+       //  }
+   
+        compiler_state_t state = { 0 };
+        initialize_compiler(&state, "lilang_temp_output_imm_mode.asm");
     
         fputs ("format ELF64 executable\n"
                "entry _start\n"
@@ -413,22 +425,23 @@ imm_mode ()
                "     syscall\n"
                "     add rsp, 40\n"
                "      ret\n"
-               "_start:\n", output_file);
+               "_start:\n", state.output_file);
 
         char *token = strtok (code_buf, " ");
         while (token != NULL)
         {
-          compile (output_file, token);
+          compile_token (&state, token);
           token = strtok (NULL, " ");
         }
 
-        fputs ("\tcall exit\n", output_file);
-        fclose (output_file);
+        fputs ("\tcall exit\n", state.output_file);
+        fclose (state.output_file);
 
         system ("fasm lilang_temp_output_imm_mode.asm > /dev/null 2>&1");
         system ("chmod +x lilang_temp_output_imm_mode");
 
-        system ("./lilang_temp_output_imm_mode");
+        int res = system ("./lilang_temp_output_imm_mode");
+        fprintf (stdout, "[%d]", WEXITSTATUS(res));
     }
     else 
     {
