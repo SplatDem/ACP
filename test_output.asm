@@ -73,4 +73,90 @@ _start:
 	push rax
 	pop rdi
 	call dump
+	push 1
+;; Do condition check
+	pop rax
+	cmp rax, 0
+	jz .while_end_-1
+.do_body_-1:
+	push 420
+	pop rdi
+	call dump
+	push 10
+;; While loop start
+.while_0:
+
+	pop rax
+	push rax
+	push rax
+	push 0
+	pop rbx
+	pop rax
+	cmp rax, rbx
+	mov rax, 0
+	setg al
+	push rax
+;; Do condition check
+	pop rax
+	cmp rax, 0
+	jz .while_end_0
+.do_body_0:
+
+	pop rax
+	push rax
+	push rax
+	push 88
+	pop rax
+	pop rbx
+	add rax, rbx
+	push rax
+	pop rdi
+	call dump
+	push 1
+	pop rbx
+	pop rax
+	sub rax, rbx
+	push rax
+;; End of loop - jump back
+	jmp .while_0
+.while_end_0:
+	push 88
+;; While loop start
+.while_0:
+
+	pop rax
+	push rax
+	push rax
+	push 0
+	pop rbx
+	pop rax
+	cmp rax, rbx
+	mov rax, 0
+	setg al
+	push rax
+;; Do condition check
+	pop rax
+	cmp rax, 0
+	jz .while_end_0
+.do_body_0:
+
+	pop rax
+	push rax
+	push rax
+	push 2
+	pop rbx
+	pop rax
+	cdq
+	idiv rbx
+	push rax
+	pop rdi
+	call dump
+	push 1
+	pop rbx
+	pop rax
+	sub rax, rbx
+	push rax
+;; End of loop - jump back
+	jmp .while_0
+.while_end_0:
 	call exit

@@ -4,6 +4,8 @@
 #include <stdio.h>
 #include "compiler.h"
 
+#define BUGCHECK puts ("JFELSFEJFLESJFLKja");
+
 #define DEFAULT_CODE_BUF_SIZE 1024
 #define MAX_LABEL_LEN 64
 
@@ -31,6 +33,7 @@ initialize_compiler (compiler_state_t *state)
   state->line_number = 1;
   state->not_counter = 0;
   state->if_counter = 0;
+  state->if_spotted = false;
   state->has_error = false;
   state->stack_depth = 0;
   state->current_register = 0;
@@ -54,17 +57,21 @@ translate_token(const char *token)
   else if (!strcmp (token, "<=")) return OP_LTE;
   else if (!strcmp (token, ">=")) return OP_GTE;
   else if (!strcmp (token, "!")) return OP_NOT;
-  else if (!strcmp (token, "r,")) return OP_TOREG;
+  else if (!strcmp (token, "r=")) return OP_TOREG;
   else if (!strcmp (token, ".")) return OP_DUMP;
   else if (!strcmp (token, "swap")) return OP_SWAP;
   else if (!strcmp (token, "drop")) return OP_DROP;
+  else if (!strcmp (token, "dup")) return OP_DUP;
   else if (!strcmp (token, "if")) return OP_IF;
   else if (!strcmp (token, "else")) return OP_ELSE;
   else if (!strcmp (token, "{")) return OP_BEGIN;
-  else if (!strcmp (token, "}")) return OP_END;
-  else if (!strcmp (token, "proc")) return OP_END;
+  else if (!strcmp (token, "endif")) return OP_ENDIF;
+  else if (!strcmp (token, "endwhile")) return OP_ENDWHILE;
+  else if (!strcmp (token, "proc")) return OP_PROC;
   else if (!strcmp (token, "ret")) return OP_RETURN;
   else if (!strcmp (token, "syscall")) return OP_SYSCALL;
+  else if (!strcmp (token, "while")) return OP_WHILE;
+  else if (!strcmp (token, "do")) return OP_DO;
   else if (is_valid_number (token)) return OP_PUSH;
   else return OP_UNKNOWN;
 }
@@ -193,6 +200,22 @@ compile_token (compiler_state_t *state, const char *token)
       fputs("\tadd rsp, 8\n", state->output_file);
       break;
     }
+    case OP_DUP:
+    {
+      if (state->stack_depth < 1)
+      {
+        log_error (ERROR_EMPTY_STACK,
+                   "Nothing to duplicate", state->line_number);
+        state->has_error = true;
+        return false;
+      }
+      fputs ("\n"
+             "\tpop rax\n"
+             "\tpush rax\n"
+             "\tpush rax\n", state->output_file);
+      state->stack_depth++;
+      break;
+    }
     case OP_IF:
     {
       if (state->stack_depth < 1)
@@ -201,7 +224,7 @@ compile_token (compiler_state_t *state, const char *token)
                    "No condition for if statement", state->line_number);
         state->has_error = true;
         return false;
-     }
+      }
       state->stack_depth--;
       fprintf (state->output_file,
               ";; If block\n"
@@ -209,21 +232,75 @@ compile_token (compiler_state_t *state, const char *token)
               "\tcmp rax, 0\n"
               "\tjz .else_%d\n"
               ".if_%d:\n", state->if_counter, state->if_counter);
+      state->if_spotted = true;
       state->if_counter++;
       break;
     }
     case OP_ELSE:
     {
+      if (!state->if_spotted)
+      {
+        log_error (ERROR_INVALID_SYNTAX,
+                    "'else' must be used after 'if'", state->line_number);
+        return false;
+      }
       fprintf (state->output_file,
               ";; Else block\n"
               "\tjmp .endif_%d\n"
               ".else_%d:\n", state->if_counter-1, state->if_counter-1);
       break;
     }
-    case OP_END:
+    case OP_WHILE:
     {
+        fprintf(state->output_file,
+                ";; While loop start\n"
+                ".while_%d:\n",
+                state->while_counter);
+        state->while_counter++;
+        break;
+    }
+
+    case OP_DO:
+    {
+        if (state->stack_depth < 1)
+        {
+            log_error(ERROR_EMPTY_STACK,
+                      "No condition for do", state->line_number);
+            state->has_error = true;
+            return false;
+        }
+        state->stack_depth--;
+    
+        fprintf(state->output_file,
+                ";; Do condition check\n"
+                "\tpop rax\n"
+                "\tcmp rax, 0\n"
+                "\tjz .while_end_%d\n"
+                ".do_body_%d:\n",
+                state->while_counter - 1, state->while_counter - 1);
+        break;
+    }
+    case OP_ENDIF:
+    {
+      if (!state->if_spotted)
+      {
+        log_error (ERROR_INVALID_SYNTAX,
+                    "What endif? Where is if?", state->line_number);
+        return false;
+      }
       fprintf (state->output_file, ";; End\n.endif_%d:\n", state->if_counter-1);
+      state->if_spotted = false;
       break;
+    }
+    case OP_ENDWHILE:
+    {
+        fprintf(state->output_file,
+                ";; End of loop - jump back\n"
+                "\tjmp .while_%d\n"
+                ".while_end_%d:\n",
+                state->while_counter - 1, state->while_counter - 1);
+        state->while_counter--;
+        break;
     }
     case OP_BEGIN:
     {

@@ -16,8 +16,8 @@ typedef enum operations
   OP_DUMP, OP_SWAP, OP_DROP, OP_DUP,
 
   // Keywords
-  OP_IF, OP_ELSE, OP_BEGIN, OP_END, OP_PROC,
-  OP_RETURN, OP_SYSCALL,
+  OP_IF, OP_ELSE, OP_BEGIN, OP_ENDIF, OP_PROC,
+  OP_RETURN, OP_SYSCALL, OP_WHILE, OP_DO, OP_ENDWHILE,
 
   // Operators
   OP_EQ, OP_NEQ, OP_LT, OP_GT, OP_LTE, OP_GTE, OP_NOT,
@@ -65,8 +65,10 @@ typedef struct compiler_state_t {
   int if_counter;
   int not_counter;
   bool has_error;
+  bool if_spotted;
   int stack_depth;
   int current_register;
+  int while_counter;
 } compiler_state_t;
 
 void log_error (compiler_result_t result, const char *msg, size_t line_num);
