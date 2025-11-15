@@ -39,6 +39,7 @@ typedef enum error_types
   ERROR_EMPTY_STACK,
   ERROR_TOO_MANY_NESTED_BLOCKS,
   ERROR_FAILED_TO_INIT_COMPILER,
+  ERROR_INVALID_REGISTER,
 } compiler_result_t;
 
 static const char *error_messages[] = {
@@ -52,6 +53,7 @@ static const char *error_messages[] = {
     "Stack operation on empty stack",
     "Too many nested blocks",
     "Failed to initialize compiler",
+    "RAX RDI RSI RDX R10 R8 R9"
 };
 
 typedef struct compiler_state_t {

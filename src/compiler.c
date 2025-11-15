@@ -1,13 +1,14 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <stdio.h>
 #include "compiler.h"
 
 #define DEFAULT_CODE_BUF_SIZE 1024
 #define MAX_LABEL_LEN 64
 
 static const char *registers[] = {
-  "rax", "rdi", "rsi", "rdx", "r10", "r8", "r9",
+  "rax", "rdi", "rsi", "rdx", "r10", "r8", "r9", NULL
 };
 
 void
@@ -23,10 +24,13 @@ log_error (compiler_result_t result, const char *msg, size_t line_num)
 compiler_result_t
 initialize_compiler (compiler_state_t *state)
 {
-  memset (state, 0, sizeof (compiler_state_t));
+  if (state == NULL)
+    return ERROR_INVALID_SYNTAX;
 
+  memset (state, 0, sizeof (compiler_state_t));
   state->line_number = 1;
   state->not_counter = 0;
+  state->if_counter = 0;
   state->has_error = false;
   state->stack_depth = 0;
   state->current_register = 0;
@@ -35,8 +39,10 @@ initialize_compiler (compiler_state_t *state)
 }
 
 operations
-translate_token (const char *token)
+translate_token(const char *token)
 {
+  if (token == NULL) return OP_UNKNOWN;
+  
   if (!strcmp (token, "+")) return OP_PLUS;
   else if (!strcmp (token, "-")) return OP_MINUS;
   else if (!strcmp (token, "/")) return OP_DIV;
@@ -59,12 +65,12 @@ translate_token (const char *token)
   else if (!strcmp (token, "proc")) return OP_END;
   else if (!strcmp (token, "ret")) return OP_RETURN;
   else if (!strcmp (token, "syscall")) return OP_SYSCALL;
-  else if (is_valid_number(token)) return OP_PUSH;
+  else if (is_valid_number (token)) return OP_PUSH;
   else return OP_UNKNOWN;
 }
 
 bool
-is_valid_number (const char *str)
+is_valid_number(const char *str)
 {
   if (str == NULL || *str == '\0') return false;
   
@@ -82,7 +88,11 @@ is_valid_number (const char *str)
 bool
 compile_token (compiler_state_t *state, const char *token)
 {
-  int cursor = translate_token (token);
+  if (state == NULL || token == NULL)
+    return false;
+
+  operations cursor = translate_token (token);
+  
   switch (cursor)
   {
     case OP_PLUS:
@@ -92,8 +102,9 @@ compile_token (compiler_state_t *state, const char *token)
     {
       if (state->stack_depth < 2)
       {
-        log_error (ERROR_EMPTY_STACK, "Not enough values on a stack for the arithmetic operation",
-                    state->line_number);
+        log_error (ERROR_EMPTY_STACK,
+                    "Not enough values on stack for arithmetic operation",
+                  state->line_number);
         state->has_error = true;
         return false;
       }
@@ -102,42 +113,17 @@ compile_token (compiler_state_t *state, const char *token)
       switch (cursor)
       {
         case OP_PLUS:
-        {
-          fputs ("\n"
-                 "\tpop rax\n"
-                 "\tpop rbx\n"
-                 "\tadd rax, rbx\n"
-                 "\tpush rax\n", state->output_file);
+          fputs ("\tpop rax\n\tpop rbx\n\tadd rax, rbx\n\tpush rax\n", state->output_file);
           break;
-        }
         case OP_MINUS:
-        {
-          fputs ("\n"
-                 "\tpop rbx\n"
-                 "\tpop rax\n"
-                 "\tsub rax, rbx\n"
-                 "\tpush rax\n", state->output_file);
+          fputs ("\tpop rbx\n\tpop rax\n\tsub rax, rbx\n\tpush rax\n", state->output_file);
           break;
-        }
         case OP_MUL:
-        {
-          fputs ("\n"
-                 "\tpop rax\n"
-                 "\tpop rbx\n"
-                 "\timul rax, rbx\n"
-                 "\tpush rax\n", state->output_file);
+          fputs ("\tpop rax\n\tpop rbx\n\timul rax, rbx\n\tpush rax\n", state->output_file);
           break;
-        }
         case OP_DIV:
-          {
-          fputs ("\n"
-                 "\tpop rbx\n"
-                 "\tpop rax\n"
-                 "\tcdq\n"
-                 "\tidiv rbx\n"
-                 "\tpush rax\n", state->output_file);
-            break;
-          }
+          fputs ("\tpop rbx\n\tpop rax\n\tcdq\n\tidiv rbx\n\tpush rax\n", state->output_file);
+          break;
       }
       break;
     }
@@ -148,26 +134,21 @@ compile_token (compiler_state_t *state, const char *token)
     {
       if (state->stack_depth < 2)
       {
-        log_error (ERROR_EMPTY_STACK, "Not enough values on a stack for the logic operation",
-                    state->line_number);
+        log_error (ERROR_EMPTY_STACK, "Not enough values on stack for comparison",
+                  state->line_number);
         state->has_error = true;
         return false;
       }
       state->stack_depth--;
    
-      fprintf(state->output_file,
-             "\n"
-             "\tpop rbx\n"
-             "\tpop rax\n"
-             "\tcmp rax, rbx\n"
-             "\tmov rax, 0\n");
+      fputs ("\tpop rbx\n\tpop rax\n\tcmp rax, rbx\n\tmov rax, 0\n", state->output_file);
 
       switch (cursor)
       {
-        case OP_LT: fputs ("\tsetl al\n", state->output_file); break;
-        case OP_GT: fputs ("\tsetg al\n", state->output_file); break;
-        case OP_EQ: fputs ("\tsete al\n", state->output_file); break;
-        case OP_NEQ: fputs ("\tsetne al\n", state->output_file); break;
+        case OP_LT: fputs("\tsetl al\n", state->output_file); break;
+        case OP_GT: fputs("\tsetg al\n", state->output_file); break;
+        case OP_EQ: fputs("\tsete al\n", state->output_file); break;
+        case OP_NEQ: fputs("\tsetne al\n", state->output_file); break;
       }
 
       fputs ("\tpush rax\n", state->output_file);
@@ -177,56 +158,53 @@ compile_token (compiler_state_t *state, const char *token)
     {
       if (state->stack_depth < 1)
       {
-        log_error (ERROR_EMPTY_STACK, "Nothing to dump",
-                    state->line_number);
+        log_error (ERROR_EMPTY_STACK,
+                   "Nothing to dump", state->line_number);
         state->has_error = true;
         return false;
       }
       state->stack_depth--;
-      fputs ("\n"
-             "\tpop rdi\n"
-             "\tcall dump\n", state->output_file);
+      fputs ("\tpop rdi\n\tcall dump\n", state->output_file);
       break;
     }
     case OP_SWAP:
     {
       if (state->stack_depth < 2)
       {
-        log_error (ERROR_EMPTY_STACK, "Not enough values on a stack to swap",
-                    state->line_number);
+        log_error (ERROR_EMPTY_STACK,
+                   "Not enough values to swap", state->line_number);
         state->has_error = true;
         return false;
       }
-      fputs ("\n\tpop rax\n"
-             "\tpop rdi\n"
-             "\tpush rax\n"
-             "\tpush rdi\n", state->output_file);
+      fputs ("\tpop rax\n\tpop rdi\n\tpush rax\n\tpush rdi\n",
+             state->output_file);
       break;
     }
     case OP_DROP:
     {
       if (state->stack_depth < 1)
       {
-        log_error (ERROR_EMPTY_STACK, "Nothing to drop",
-                    state->line_number);
+        log_error (ERROR_EMPTY_STACK,
+                   "Nothing to drop", state->line_number);
         state->has_error = true;
         return false;
       }
-      fputs ("\n\tadd rsp, 8\n", state->output_file);
+      state->stack_depth--;
+      fputs("\tadd rsp, 8\n", state->output_file);
       break;
     }
     case OP_IF:
     {
       if (state->stack_depth < 1)
       {
-        log_error (ERROR_INVALID_SYNTAX, "No condition for if statement",
-                    state->line_number);
+        log_error (ERROR_EMPTY_STACK,
+                   "No condition for if statement", state->line_number);
         state->has_error = true;
         return false;
-      }
-      fprintf(state->output_file,
-              "\n"
-              ";; If block!!!!!\n"
+     }
+      state->stack_depth--;
+      fprintf (state->output_file,
+              ";; If block\n"
               "\tpop rax\n"
               "\tcmp rax, 0\n"
               "\tjz .else_%d\n"
@@ -236,18 +214,15 @@ compile_token (compiler_state_t *state, const char *token)
     }
     case OP_ELSE:
     {
-      fprintf(state->output_file,
-              "\n"
-              ";; Else block!!!!!!!\n"
+      fprintf (state->output_file,
+              ";; Else block\n"
               "\tjmp .endif_%d\n"
               ".else_%d:\n", state->if_counter-1, state->if_counter-1);
       break;
     }
     case OP_END:
     {
-      fprintf(state->output_file,
-              "\n;;End!!!!!!\n"
-              ".endif_%d:\n", state->if_counter-1);
+      fprintf (state->output_file, ";; End\n.endif_%d:\n", state->if_counter-1);
       break;
     }
     case OP_BEGIN:
@@ -258,25 +233,25 @@ compile_token (compiler_state_t *state, const char *token)
     {
       if (state->stack_depth < 1)
       {
-        log_error (ERROR_EMPTY_STACK, "Nothing to reverse",
-                    state->line_number);
+        log_error (ERROR_EMPTY_STACK,
+                   "Nothing to invert", state->line_number);
         state->has_error = true;
         return false;
       }
       fprintf (state->output_file,
-               "\n"
-               "\tpop rax\n"
-               "\tcmp rax, 0\n"
-               "\tjne .not_zero_%d\n"
-               "\tmov rax, 1\n"
-               "\tjmp .done_not_%d\n"
-               ".not_zero_%d:\n"
-               "\tmov rax, 0\n"
-               ".done_not_%d:",
+              "\tpop rax\n"
+              "\tcmp rax, 0\n"
+              "\tjne .not_zero_%d\n"
+              "\tmov rax, 1\n"
+              "\tjmp .done_not_%d\n"
+              ".not_zero_%d:\n"
+              "\tmov rax, 0\n"
+              ".done_not_%d:\n"
+              "\tpush rax\n",
+              state->not_counter,
+               state->not_counter,
                 state->not_counter,
-                state->not_counter,
-                state->not_counter,
-                state->not_counter);
+                 state->not_counter);
       state->not_counter++;
       break;
     }
@@ -284,22 +259,20 @@ compile_token (compiler_state_t *state, const char *token)
     {
       if (state->stack_depth < 1)
       {
-        log_error (ERROR_EMPTY_STACK, "Nothing to return",
-                    state->line_number);
+        log_error (ERROR_EMPTY_STACK,
+                   "Nothing to return", state->line_number);
         state->has_error = true;
         return false;
       }
-
-      fputs ("\n"
-             "\tmov rax, 60\n"
-             "\tpop rbx\n"
-             "\tmov rdi, rbx\n"
-             "\tsyscall\n", state->output_file);
+      state->stack_depth--;
+      fputs ("\tmov rax, 60\n\tpop rdi\n\tsyscall\n",
+             state->output_file);
       break;
     }
     case OP_PUSH:
     {
-      fprintf (state->output_file, "\tpush %s\n", token);
+      fprintf (state->output_file,
+                "\tpush %s\n", token);
       state->stack_depth++;
       break;
     }
@@ -307,28 +280,42 @@ compile_token (compiler_state_t *state, const char *token)
     {
       if (state->stack_depth < 1)
       {
-        log_error (ERROR_EMPTY_STACK, "Nothing to mov to the register",
-                    state->line_number);
+        log_error (ERROR_EMPTY_STACK,
+                   "Nothing to move to register", state->line_number);
         state->has_error = true;
         return false;
       }
-
-      fprintf (state->output_file,
-               "\n"
-               "\tpop %s\n", registers[state->current_register]);
+      state->stack_depth--;
+      
+      if (state->current_register >= 7)
+      {
+        log_error (ERROR_INVALID_REGISTER,
+                    "Use linux syscall covention", state->line_number);
+        state->has_error = true;
+        return false;
+      }
+      
+      fprintf (state->output_file, "\tpop %s\n",
+               registers[state->current_register]);
       state->current_register++;
       break;
     }
     case OP_SYSCALL:
     {
-      fputs ("\n\tsyscall\n"
-             "\tpush rax\n", state->output_file);
+      fputs ("\tsyscall\n\tpush rax\n", state->output_file);
+      state->stack_depth++;
       state->current_register = 0;
       break;
     }
     case OP_UNKNOWN:
     {
       log_error (ERROR_UNKNOWN_TOKEN, token, state->line_number);
+      state->has_error = true;
+      return false;
+    }
+    default:
+    {
+      log_error (ERROR_UNKNOWN_TOKEN, "Unhandled operation", state->line_number);
       state->has_error = true;
       return false;
     }
@@ -340,44 +327,49 @@ compile_token (compiler_state_t *state, const char *token)
 compiler_result_t
 compile_file (compiler_state_t *state)
 {
-  fputs ("format ELF64 executable\n"
-         "entry _start\n"
-         "exit:\n"
-         "\tmov rax, 60\n"
-         "\tmov rdi, 0\n"
-         "\tsyscall\n"
-         "dump:\n"
-         "     mov r9, -3689348814741910323\n"
-         "     sub rsp, 40\n"
-         "     mov BYTE [rsp+31], 10\n"
-         "     lea rcx, [rsp+30]\n"
-         "dump_L2:\n"
-         "     mov rax, rdi\n"
-         "     lea r8, [rsp+32]\n"
-         "     mul r9\n"
-         "     mov rax, rdi\n"
-         "     sub r8, rcx\n"
-         "     shr rdx, 3\n"
-         "     lea rsi, [rdx+rdx*4]\n"
-         "     add rsi, rsi\n"
-         "     sub rax, rsi\n"
-         "     add eax, 48\n"
-         "     mov BYTE [rcx], al\n"
-         "     mov rax, rdi\n"
-         "     mov rdi, rdx\n"
-         "     mov rdx, rcx\n"
-         "     sub rcx, 1\n"
-         "     cmp rax, 9\n"
-         "     ja dump_L2\n"
-         "     lea rax, [rsp+32]\n"
-         "     mov edi, 1\n"
-         "     sub rdx, rax\n"
-         "     xor eax, eax\n"
-         "     lea rsi, [rsp+32+rdx]\n"
-         "     mov rdx, r8\n"
-         "     mov rax, 1\n"
-         "     syscall\n"
-         "     add rsp, 40\n"
-         "      ret\n"
-         "_start:\n", state->output_file);
+  if (state == NULL || state->output_file == NULL)
+    return ERROR_INVALID_SYNTAX;
+
+  fputs("format ELF64 executable\n"
+        "entry _start\n"
+        "exit:\n"
+        "\tmov rax, 60\n"
+        "\tmov rdi, 0\n"
+        "\tsyscall\n"
+        "dump:\n"
+        "\tmov r9, -3689348814741910323\n"
+        "\tsub rsp, 40\n"
+        "\tmov BYTE [rsp+31], 10\n"
+        "\tlea rcx, [rsp+30]\n"
+        "dump_L2:\n"
+        "\tmov rax, rdi\n"
+        "\tlea r8, [rsp+32]\n"
+        "\tmul r9\n"
+        "\tmov rax, rdi\n"
+        "\tsub r8, rcx\n"
+        "\tshr rdx, 3\n"
+        "\tlea rsi, [rdx+rdx*4]\n"
+        "\tadd rsi, rsi\n"
+        "\tsub rax, rsi\n"
+        "\tadd eax, 48\n"
+        "\tmov BYTE [rcx], al\n"
+        "\tmov rax, rdi\n"
+        "\tmov rdi, rdx\n"
+        "\tmov rdx, rcx\n"
+        "\tsub rcx, 1\n"
+        "\tcmp rax, 9\n"
+        "\tja dump_L2\n"
+        "\tlea rax, [rsp+32]\n"
+        "\tmov edi, 1\n"
+        "\tsub rdx, rax\n"
+        "\txor eax, eax\n"
+        "\tlea rsi, [rsp+32+rdx]\n"
+        "\tmov rdx, r8\n"
+        "\tmov rax, 1\n"
+        "\tsyscall\n"
+        "\tadd rsp, 40\n"
+        "\tret\n"
+        "_start:\n", state->output_file);
+        
+  return COMPILER_SUCCESS;
 }
