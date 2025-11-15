@@ -16,10 +16,13 @@ typedef enum operations
   OP_DUMP, OP_SWAP, OP_DROP, OP_DUP,
 
   // Keywords
-  OP_IF, OP_ELSE, OP_BEGIN, OP_END, OP_PROC, OP_RETURN,
+  OP_IF, OP_ELSE, OP_BEGIN, OP_END, OP_PROC,
+  OP_RETURN, OP_SYSCALL,
 
-  // Logic operators
+  // Operators
   OP_EQ, OP_NEQ, OP_LT, OP_GT, OP_LTE, OP_GTE, OP_NOT,
+  OP_TOREG,
+
 
   OP_UNKNOWN,
 } operations;
@@ -34,7 +37,8 @@ typedef enum error_types
   ERROR_MEMORY_ALLOCATION,
   ERROR_INVALID_NUMBER,
   ERROR_EMPTY_STACK,
-  ERROR_TOO_MANY_NESTED_BLOCKS
+  ERROR_TOO_MANY_NESTED_BLOCKS,
+  ERROR_FAILED_TO_INIT_COMPILER,
 } compiler_result_t;
 
 static const char *error_messages[] = {
@@ -47,6 +51,7 @@ static const char *error_messages[] = {
     "Invalid number format",
     "Stack operation on empty stack",
     "Too many nested blocks",
+    "Failed to initialize compiler",
 };
 
 typedef struct compiler_state_t {
@@ -59,13 +64,13 @@ typedef struct compiler_state_t {
   int not_counter;
   bool has_error;
   int stack_depth;
+  int current_register;
 } compiler_state_t;
 
 void log_error (compiler_result_t result, const char *msg, size_t line_num);
-compiler_result_t initialize_compiler (compiler_state_t *state, const char *output_file);
-void destroy_compiler (compiler_state_t *state);
+compiler_result_t initialize_compiler (compiler_state_t *state);
 operations translate_token (const char *token);
-void compile_token (compiler_state_t *state, const char *token);
+bool compile_token (compiler_state_t *state, const char *token);
 compiler_result_t compile_file (compiler_state_t *state);
 bool is_valid_number (const char *str);
 

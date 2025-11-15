@@ -6,6 +6,10 @@
 #define DEFAULT_CODE_BUF_SIZE 1024
 #define MAX_LABEL_LEN 64
 
+static const char *registers[] = {
+  "rax", "rdi", "rsi", "rdx", "r10", "r8", "r9",
+};
+
 void
 log_error (compiler_result_t result, const char *msg, size_t line_num)
 {
@@ -17,46 +21,17 @@ log_error (compiler_result_t result, const char *msg, size_t line_num)
 }
 
 compiler_result_t
-initialize_compiler (compiler_state_t *state,
-                      const char *output_file)
+initialize_compiler (compiler_state_t *state)
 {
   memset (state, 0, sizeof (compiler_state_t));
-
-//   state->input_file = fopen (input_file, "r");
-//   if (state->input_file == NULL)
-//   {
-//     return ERROR_FILE_NOT_FOUND;
-//   }
-
-  state->output_file = fopen (output_file, "w");
-  if (state->output_file == NULL)
-  {
-    // fclose (state->input_file);
-    return ERROR_FILE_NOT_FOUND;
-  }
-
-  state->code_buf = malloc (DEFAULT_CODE_BUF_SIZE);
-  if (state->code_buf == NULL)
-  {
-    // fclose (state->input_file);
-    fclose (state->output_file);
-    return ERROR_MEMORY_ALLOCATION;
-  }
 
   state->line_number = 1;
   state->not_counter = 0;
   state->has_error = false;
   state->stack_depth = 0;
+  state->current_register = 0;
 
   return COMPILER_SUCCESS;
-}
-
-void
-destroy_compiler (compiler_state_t *state)
-{
-  if (state->input_file) fclose(state->input_file);
-  if (state->output_file) fclose(state->output_file);
-  if (state->code_buf) free(state->code_buf);
 }
 
 operations
@@ -73,6 +48,7 @@ translate_token (const char *token)
   else if (!strcmp (token, "<=")) return OP_LTE;
   else if (!strcmp (token, ">=")) return OP_GTE;
   else if (!strcmp (token, "!")) return OP_NOT;
+  else if (!strcmp (token, "r,")) return OP_TOREG;
   else if (!strcmp (token, ".")) return OP_DUMP;
   else if (!strcmp (token, "swap")) return OP_SWAP;
   else if (!strcmp (token, "drop")) return OP_DROP;
@@ -82,6 +58,7 @@ translate_token (const char *token)
   else if (!strcmp (token, "}")) return OP_END;
   else if (!strcmp (token, "proc")) return OP_END;
   else if (!strcmp (token, "ret")) return OP_RETURN;
+  else if (!strcmp (token, "syscall")) return OP_SYSCALL;
   else if (is_valid_number(token)) return OP_PUSH;
   else return OP_UNKNOWN;
 }
@@ -102,7 +79,7 @@ is_valid_number (const char *str)
   return true;
 }
 
-void
+bool
 compile_token (compiler_state_t *state, const char *token)
 {
   int cursor = translate_token (token);
@@ -115,10 +92,10 @@ compile_token (compiler_state_t *state, const char *token)
     {
       if (state->stack_depth < 2)
       {
-        log_error (ERROR_EMPTY_STACK, "Not enought values on a stack for the arithmetic operation",
+        log_error (ERROR_EMPTY_STACK, "Not enough values on a stack for the arithmetic operation",
                     state->line_number);
         state->has_error = true;
-        return;
+        return false;
       }
       state->stack_depth--;
 
@@ -171,10 +148,10 @@ compile_token (compiler_state_t *state, const char *token)
     {
       if (state->stack_depth < 2)
       {
-        log_error (ERROR_EMPTY_STACK, "Not enought values on a stack for the logic operation",
+        log_error (ERROR_EMPTY_STACK, "Not enough values on a stack for the logic operation",
                     state->line_number);
         state->has_error = true;
-        return;
+        return false;
       }
       state->stack_depth--;
    
@@ -203,7 +180,7 @@ compile_token (compiler_state_t *state, const char *token)
         log_error (ERROR_EMPTY_STACK, "Nothing to dump",
                     state->line_number);
         state->has_error = true;
-        return;
+        return false;
       }
       state->stack_depth--;
       fputs ("\n"
@@ -215,10 +192,10 @@ compile_token (compiler_state_t *state, const char *token)
     {
       if (state->stack_depth < 2)
       {
-        log_error (ERROR_EMPTY_STACK, "Not enought values on a stack to swap",
+        log_error (ERROR_EMPTY_STACK, "Not enough values on a stack to swap",
                     state->line_number);
         state->has_error = true;
-        return;
+        return false;
       }
       fputs ("\n\tpop rax\n"
              "\tpop rdi\n"
@@ -233,7 +210,7 @@ compile_token (compiler_state_t *state, const char *token)
         log_error (ERROR_EMPTY_STACK, "Nothing to drop",
                     state->line_number);
         state->has_error = true;
-        return;
+        return false;
       }
       fputs ("\n\tadd rsp, 8\n", state->output_file);
       break;
@@ -245,7 +222,7 @@ compile_token (compiler_state_t *state, const char *token)
         log_error (ERROR_INVALID_SYNTAX, "No condition for if statement",
                     state->line_number);
         state->has_error = true;
-        return;
+        return false;
       }
       fprintf(state->output_file,
               "\n"
@@ -284,7 +261,7 @@ compile_token (compiler_state_t *state, const char *token)
         log_error (ERROR_EMPTY_STACK, "Nothing to reverse",
                     state->line_number);
         state->has_error = true;
-        return;
+        return false;
       }
       fprintf (state->output_file,
                "\n"
@@ -310,7 +287,7 @@ compile_token (compiler_state_t *state, const char *token)
         log_error (ERROR_EMPTY_STACK, "Nothing to return",
                     state->line_number);
         state->has_error = true;
-        return;
+        return false;
       }
 
       fputs ("\n"
@@ -326,13 +303,38 @@ compile_token (compiler_state_t *state, const char *token)
       state->stack_depth++;
       break;
     }
+    case OP_TOREG:
+    {
+      if (state->stack_depth < 1)
+      {
+        log_error (ERROR_EMPTY_STACK, "Nothing to mov to the register",
+                    state->line_number);
+        state->has_error = true;
+        return false;
+      }
+
+      fprintf (state->output_file,
+               "\n"
+               "\tpop %s\n", registers[state->current_register]);
+      state->current_register++;
+      break;
+    }
+    case OP_SYSCALL:
+    {
+      fputs ("\n\tsyscall\n"
+             "\tpush rax\n", state->output_file);
+      state->current_register = 0;
+      break;
+    }
     case OP_UNKNOWN:
     {
       log_error (ERROR_UNKNOWN_TOKEN, token, state->line_number);
       state->has_error = true;
-      return;
+      return false;
     }
   }
+
+  return true;
 }
 
 compiler_result_t

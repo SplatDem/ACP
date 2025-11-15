@@ -21,5 +21,5 @@ else { 420 . }
 
 ;; Let's do some stack magic
 
-14 420 88 swap drop > if { 1488 . else 420 . }
+. 14 420 88 swap drop > if { 1488 . else 420 . }
 

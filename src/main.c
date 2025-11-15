@@ -22,23 +22,32 @@ main (int argc, char **argv)
     exit (EXIT_FAILURE);
   }
 
-  if (!strcmp(argv[1], "--imm-mode")
+  if (argv[1] != NULL && !strcmp(argv[1], "--imm-mode")
        || !strcmp(argv[1], "-i"))
   {
-    if (!strcmp(argv[2], "--no-banner"))
+    if (argv[2] != NULL && !strcmp(argv[2], "--no-banner"))
       no_banner = true;
     imm_mode ();
+    return EXIT_SUCCESS;
   }
-  
-  FILE *fd = fopen(argv[1], "r");
-  if (fd == NULL)
+
+  compiler_state_t state = { 0 };
+  compiler_result_t result = initialize_compiler(&state);
+  if (result)
+  {
+    puts ("[ERROR]: Failed to initialize compiler");
+    return EXIT_FAILURE;
+  }
+    
+  state.input_file = fopen(argv[1], "r");
+  if (state.input_file == NULL)
   {
     puts ("Failed to open input file");
     exit (EXIT_FAILURE);
   }
-
-  FILE *output_fd = fopen (argv[2], "w");
-  if (output_fd == NULL)
+  
+  state.output_file = fopen(argv[2], "w");
+  if (state.output_file == NULL)
   {
     puts ("Failed to open output file");
     exit (EXIT_FAILURE);
@@ -85,10 +94,10 @@ main (int argc, char **argv)
          "     syscall\n"
          "     add rsp, 40\n"
          "      ret\n"
-         "_start:\n", output_fd);
+         "_start:\n", state.output_file);
 
   char *token;
-  while (fgets (code_buf, DEFAULT_CODE_BUF_SIZE, fd))
+  while (fgets (code_buf, DEFAULT_CODE_BUF_SIZE, state.input_file))
   {
     if (code_buf[0] == '\0')
     {
@@ -115,14 +124,16 @@ main (int argc, char **argv)
     while (token != NULL)
     {
       // printf (" Token: '%s' ", token);
-      compile (output_fd, token);
+      if (!compile_token (&state, token))
+      {
+        exit (EXIT_FAILURE);
+      }
       token = strtok (NULL, " ");
     }
   }
   
-  fputs ("\tcall exit\n", output_fd);
-  fclose (fd);
-  fclose (output_fd);
+  fputs ("\tcall exit\n", state.output_file);
+  fclose (state.input_file);
   free (code_buf);
   return 0;
 }
@@ -339,14 +350,67 @@ imm_mode ()
           "':exit'\n");
    }
 
-  char *code_buf = (char *)malloc (DEFAULT_CODE_BUF_SIZE);
+  compiler_state_t state = { 0 };
+  initialize_compiler(&state);
+
+  
+  state.output_file = fopen("lilang_temp_output_imm_mode.asm", "w");
+  if (state.output_file == NULL) {
+    puts("Failed to open output file");
+  }
+
+  fputs ("format ELF64 executable\n"
+         "entry _start\n"
+         "exit:\n"
+         "\tmov rax, 60\n"
+         "\tmov rdi, 0\n"
+         "\tsyscall\n"
+         "dump:\n"
+         "     mov r9, -3689348814741910323\n"
+         "     sub rsp, 40\n"
+         "     mov BYTE [rsp+31], 10\n"
+         "     lea rcx, [rsp+30]\n"
+         "dump_L2:\n"
+         "     mov rax, rdi\n"
+         "     lea r8, [rsp+32]\n"
+         "     mul r9\n"
+         "     mov rax, rdi\n"
+         "     sub r8, rcx\n"
+         "     shr rdx, 3\n"
+         "     lea rsi, [rdx+rdx*4]\n"
+         "     add rsi, rsi\n"
+         "     sub rax, rsi\n"
+         "     add eax, 48\n"
+         "     mov BYTE [rcx], al\n"
+         "     mov rax, rdi\n"
+         "     mov rdi, rdx\n"
+         "     mov rdx, rcx\n"
+         "     sub rcx, 1\n"
+         "     cmp rax, 9\n"
+         "     ja dump_L2\n"
+         "     lea rax, [rsp+32]\n"
+         "     mov edi, 1\n"
+         "     sub rdx, rax\n"
+         "     xor eax, eax\n"
+         "     lea rsi, [rsp+32+rdx]\n"
+         "     mov rdx, r8\n"
+         "     mov rax, 1\n"
+         "     syscall\n"
+         "     add rsp, 40\n"
+         "      ret\n"
+         "_start:\n", state.output_file);
+
+  char *code_buf = (char *)malloc(DEFAULT_CODE_BUF_SIZE);
   if (code_buf == NULL)
   {
     puts ("Failed to allocate memory");
+    fclose(state.output_file);
     exit (EXIT_FAILURE);
   }
 
+  char *token;
   bool running = true;
+  
   while (running)
   {
     printf ("> ");
@@ -365,27 +429,51 @@ imm_mode ()
           continue;
         }
 
+
         char *comment_pos = strchr(code_buf, ';');
         if (comment_pos != NULL)
         {
             *comment_pos = '\0';
-            len = strlen(code_buf);
-            if (len == 0)
+            if (code_buf[0] == '\0')
             {
                 continue;
             }
         }
 
-       //  FILE *output_file = fopen ("./lilang_temp_output_imm_mode.asm", "w");
-       //  if (output_file == NULL)
-       //  {
-       //    puts ("Failed to open temporary output file");
-       //    continue;
-       //  }
-   
-        compiler_state_t state = { 0 };
-        initialize_compiler(&state, "lilang_temp_output_imm_mode.asm");
-    
+        // char *comment_pos = strchr(code_buf, ';');
+        // if (comment_pos != NULL)
+        // {
+            // *comment_pos = '\0';
+            // len = strlen(code_buf);
+            // if (len == 0)
+            // {
+                // continue;
+            // }
+        // }
+
+        token = strtok (code_buf, " ");
+        while (token != NULL)
+        {
+          compile_token (&state, token);
+          token = strtok (NULL, " ");
+        }
+
+        fputs ("\tcall exit\n", state.output_file);
+        fflush(state.output_file);
+
+        system ("fasm lilang_temp_output_imm_mode.asm > /dev/null 2>&1");
+        system ("chmod +x lilang_temp_output_imm_mode");
+
+        int res = system ("./lilang_temp_output_imm_mode");
+        fprintf (stdout, "[%d]", WEXITSTATUS(res));
+        
+        fclose(state.output_file);
+        state.output_file = fopen("lilang_temp_output_imm_mode.asm", "w");
+        if (state.output_file == NULL) {
+            puts("Failed to reopen output file");
+            break;
+        }
+        
         fputs ("format ELF64 executable\n"
                "entry _start\n"
                "exit:\n"
@@ -426,22 +514,6 @@ imm_mode ()
                "     add rsp, 40\n"
                "      ret\n"
                "_start:\n", state.output_file);
-
-        char *token = strtok (code_buf, " ");
-        while (token != NULL)
-        {
-          compile_token (&state, token);
-          token = strtok (NULL, " ");
-        }
-
-        fputs ("\tcall exit\n", state.output_file);
-        fclose (state.output_file);
-
-        system ("fasm lilang_temp_output_imm_mode.asm > /dev/null 2>&1");
-        system ("chmod +x lilang_temp_output_imm_mode");
-
-        int res = system ("./lilang_temp_output_imm_mode");
-        fprintf (stdout, "[%d]", WEXITSTATUS(res));
     }
     else 
     {
@@ -449,8 +521,8 @@ imm_mode ()
     }
   }
 
-  free (code_buf);
+  fclose(state.output_file);
+  free(code_buf);
   remove ("./lilang_temp_output_imm_mode.asm");
   remove ("./lilang_temp_output_imm_mode");
-  exit (EXIT_SUCCESS);
 }

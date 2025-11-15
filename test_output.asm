@@ -38,14 +38,18 @@ dump_L2:
      add rsp, 40
       ret
 _start:
-	push 0x22
-	push 0x23
+	push 14
+	push 88
 
-	pop rax
 	pop rbx
-	add rax, rbx
+	pop rax
+	cmp rax, rbx
+	mov rax, 0
+	setne al
 	push rax
 
-	pop rdi
-	call dump
-	call exit
+;; If block!!!!!
+	pop rax
+	cmp rax, 0
+	jz .else_0
+.if_0:
