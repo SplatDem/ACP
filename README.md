@@ -1,7 +1,9 @@
 # CatCodeAndNative (I still don't figure out a name)
 
-CatCodeAndNative is a concatenative programming language
-mostly inspared by forth, but different.
+CatCodeAndNative is a concatenative programming language,
+mostly inspared by forth, but different in some cases,
+which compiles to native assembly (fasm). For now, only
+supported target is linux-x86_64.
 
 # Quick start
 
