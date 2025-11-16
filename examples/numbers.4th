@@ -5,8 +5,6 @@
 
 14 88 + .
 
-1 do 420 .
-
 ;; While loop
 ;; Here is a stack
 ;; ------

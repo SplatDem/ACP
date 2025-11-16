@@ -33,7 +33,8 @@ initialize_compiler (compiler_state_t *state)
   state->line_number = 1;
   state->not_counter = 0;
   state->if_counter = 0;
-  state->if_spotted = false;
+  state->spotted.if_spotted = false;
+  state->spotted.while_spotted = false;
   state->has_error = false;
   state->stack_depth = 0;
   state->current_register = 0;
@@ -62,6 +63,7 @@ translate_token(const char *token)
   else if (!strcmp (token, "swap")) return OP_SWAP;
   else if (!strcmp (token, "drop")) return OP_DROP;
   else if (!strcmp (token, "dup")) return OP_DUP;
+  else if (!strcmp (token, "rot")) return OP_ROT;
   else if (!strcmp (token, "if")) return OP_IF;
   else if (!strcmp (token, "else")) return OP_ELSE;
   else if (!strcmp (token, "{")) return OP_BEGIN;
@@ -216,6 +218,24 @@ compile_token (compiler_state_t *state, const char *token)
       state->stack_depth++;
       break;
     }
+    case OP_ROT:
+    {
+      if (state->stack_depth < 3)
+      {
+        log_error (ERROR_EMPTY_STACK,
+                   "Nothing to rotate ( a b c -- b c a)", state->line_number);
+        state->has_error = true;
+        return false;
+      }
+      fputs ("\n"
+             "\tpop rax\n" // a 
+             "\tpop rdi\n" // b
+             "\tpop rdx\n" // c
+             "\tpush rax\n"
+             "\tpush rdx\n"
+             "\tpush rdi\n", state->output_file);
+      break;
+    }
     case OP_IF:
     {
       if (state->stack_depth < 1)
@@ -232,13 +252,13 @@ compile_token (compiler_state_t *state, const char *token)
               "\tcmp rax, 0\n"
               "\tjz .else_%d\n"
               ".if_%d:\n", state->if_counter, state->if_counter);
-      state->if_spotted = true;
+      state->spotted.if_spotted = true;
       state->if_counter++;
       break;
     }
     case OP_ELSE:
     {
-      if (!state->if_spotted)
+      if (!state->spotted.if_spotted)
       {
         log_error (ERROR_INVALID_SYNTAX,
                     "'else' must be used after 'if'", state->line_number);
@@ -256,10 +276,10 @@ compile_token (compiler_state_t *state, const char *token)
                 ";; While loop start\n"
                 ".while_%d:\n",
                 state->while_counter);
+        state->spotted.while_spotted = true;
         state->while_counter++;
         break;
     }
-
     case OP_DO:
     {
         if (state->stack_depth < 1)
@@ -278,18 +298,24 @@ compile_token (compiler_state_t *state, const char *token)
                 "\tjz .while_end_%d\n"
                 ".do_body_%d:\n",
                 state->while_counter - 1, state->while_counter - 1);
+        if (!state->spotted.while_spotted)
+        {
+          log_error (ERROR_INVALID_SYNTAX,
+                      "What you gonna 'do' without 'while'?", state->line_number);
+          return false;
+        }
         break;
     }
     case OP_ENDIF:
     {
-      if (!state->if_spotted)
+      if (!state->spotted.if_spotted)
       {
         log_error (ERROR_INVALID_SYNTAX,
                     "What endif? Where is if?", state->line_number);
         return false;
       }
       fprintf (state->output_file, ";; End\n.endif_%d:\n", state->if_counter-1);
-      state->if_spotted = false;
+      state->spotted.if_spotted = false;
       break;
     }
     case OP_ENDWHILE:
@@ -299,6 +325,13 @@ compile_token (compiler_state_t *state, const char *token)
                 "\tjmp .while_%d\n"
                 ".while_end_%d:\n",
                 state->while_counter - 1, state->while_counter - 1);
+        if (!state->spotted.while_spotted)
+        {
+          log_error (ERROR_INVALID_SYNTAX,
+                      "What 'endwhile'? Where is 'while'?", state->line_number);
+          return false;
+        }
+        state->spotted.while_spotted = false;
         state->while_counter--;
         break;
     }
@@ -402,7 +435,7 @@ compile_token (compiler_state_t *state, const char *token)
 }
 
 compiler_result_t
-compile_file (compiler_state_t *state)
+write_ass_header (compiler_state_t *state)
 {
   if (state == NULL || state->output_file == NULL)
     return ERROR_INVALID_SYNTAX;

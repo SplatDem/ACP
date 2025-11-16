@@ -7,7 +7,7 @@
 
 #define DEFAULT_CODE_BUF_SIZE 1024
 
-bool no_banner = false;
+bool no_banner = false; // WHAT ??? DAS IST EIN GLOBAL VARIABLE ???
 
 bool process_line (compiler_state_t *state, char *line);
 
@@ -54,7 +54,7 @@ main (int argc, char **argv)
     return EXIT_FAILURE;
   }
 
-  compile_file (&state);
+  write_ass_header (&state);
 
   char *code_buf = malloc (DEFAULT_CODE_BUF_SIZE);
   if (code_buf == NULL)
@@ -87,7 +87,8 @@ main (int argc, char **argv)
   fclose (state.input_file);
   fclose (state.output_file);
   
-  printf ("Compilation successful: %s -> %s\n", argv[1], argv[2]);
+  printf ("Compilation successful: %s -> %s\n\t(executable generated)\n", argv[1], argv[2]);
+  system (string_format ("fasm %s > /dev/null", argv[2]));
   return EXIT_SUCCESS;
 }
 
@@ -161,7 +162,7 @@ imm_mode()
   }
 
   bool running = true;
-  
+
   while (running)
   {
     printf ("> ");
@@ -211,7 +212,7 @@ imm_mode()
     state.stack_depth = 0;
     state.current_register = 0;
     
-    compile_file (&state);
+    write_ass_header (&state);
   }
 
   fclose (state.output_file);

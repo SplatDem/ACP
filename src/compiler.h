@@ -13,7 +13,7 @@ typedef enum operations
   OP_PLUS, OP_MINUS, OP_MUL, OP_DIV,
 
   // Stack operations
-  OP_DUMP, OP_SWAP, OP_DROP, OP_DUP,
+  OP_DUMP, OP_SWAP, OP_DROP, OP_DUP, OP_ROT,
 
   // Keywords
   OP_IF, OP_ELSE, OP_BEGIN, OP_ENDIF, OP_PROC,
@@ -22,7 +22,6 @@ typedef enum operations
   // Operators
   OP_EQ, OP_NEQ, OP_LT, OP_GT, OP_LTE, OP_GTE, OP_NOT,
   OP_TOREG,
-
 
   OP_UNKNOWN,
 } operations;
@@ -56,6 +55,11 @@ static const char *error_messages[] = {
     "RAX RDI RSI RDX R10 R8 R9"
 };
 
+typedef struct spotted_t {
+  bool if_spotted;
+  bool while_spotted;
+} spotted_t;
+
 typedef struct compiler_state_t {
   FILE *input_file;
   FILE *output_file;
@@ -65,17 +69,18 @@ typedef struct compiler_state_t {
   int if_counter;
   int not_counter;
   bool has_error;
-  bool if_spotted;
+  spotted_t spotted;
   int stack_depth;
   int current_register;
   int while_counter;
 } compiler_state_t;
 
+const char *string_format (const char *fmt, ...);
 void log_error (compiler_result_t result, const char *msg, size_t line_num);
 compiler_result_t initialize_compiler (compiler_state_t *state);
 operations translate_token (const char *token);
 bool compile_token (compiler_state_t *state, const char *token);
-compiler_result_t compile_file (compiler_state_t *state);
+compiler_result_t write_ass_header (compiler_state_t *state);
 bool is_valid_number (const char *str);
 
 #endif
