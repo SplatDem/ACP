@@ -18,6 +18,7 @@ typedef enum operations
   // Keywords
   OP_IF, OP_ELSE, OP_BEGIN, OP_ENDIF, OP_PROC,
   OP_RETURN, OP_SYSCALL, OP_WHILE, OP_DO, OP_ENDWHILE,
+  OP_MEM, OP_LOAD8, OP_STORE8,
 
   // Operators
   OP_EQ, OP_NEQ, OP_LT, OP_GT, OP_LTE, OP_GTE, OP_NOT,
@@ -59,6 +60,8 @@ typedef struct spotted_t {
   bool if_spotted;
   bool while_spotted;
 } spotted_t;
+
+#define MAX_NESTING_IF_DEPTH 64
 
 typedef struct compiler_state_t {
   FILE *input_file;

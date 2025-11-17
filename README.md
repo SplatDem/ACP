@@ -12,10 +12,12 @@ make
 ./lilang -i # To start imm mode
 # To compile the file:
 # ./lilang input.4th output
+# For saving assembly representation, just add any file extension
+# ./lilang input.4th output.asm # Output: output and output.asm
 ```
 
 #### Arithmetic operations
-```forth
+```scheme
 744 744 + . ;; Puts 744, 744 onto stack, does + and prints the top element
 ```
 Available operations:
@@ -28,7 +30,7 @@ Available operations:
 
 #### Boolean operations
 
-```forth
+```scheme
 ;; Always true
 1 if 744 744 + . else 420 . endif
 ;; Condition
@@ -44,7 +46,7 @@ Available operations:
 |!= | pop pop setne al |
 
 #### Loops
-```forth
+```scheme
 ;; While in a nutshell
 10 while dup 0 > do
   744 744 + .
@@ -69,6 +71,16 @@ endwhile
 | swap | a b -- b a     |
 | rot  | a b c -- b c a |
 | dup  | a -- a a       |
+
+#### Memory
+
+|OP      | Action                                     |
+|--------|--------------------------------------------|
+| mem    | Get an access to the element in the memory |
+| load8  | Load a byte from an address                |
+| store8 | Store a byte to an address                 |
+
+See an example in the ./examples/tests/01-test-heil_people.4th
 
 # Documentation
 

@@ -10,17 +10,3 @@ info:
 build:
 	gcc -o $(GCCOUTPUT) src/*.c
 	echo "[\033[35mBUILD\033[0m]: Complete; Output: lilang"
-
-run: build
-	-./$(GCCOUTPUT) test.li output.asm
-	echo "========================================"
-	echo "[\033[35mBUILD\033[0m]: Assembly output:"
-	cat output.asm
-	fasm output.asm
-	chmod +x output
-	echo "========================================"
-	echo "[\033[35mBUILD\033[0m]: Program output:"
-	./output
-	echo "========================================"
-	echo "[what?]: For some reason, exit code doesn't echo'ing"
-	echo "[\033[35mBUILD\033[0m]: Exit code: $(echo $?)"

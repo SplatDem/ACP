@@ -30,6 +30,7 @@ initialize_compiler (compiler_state_t *state)
     return ERROR_INVALID_SYNTAX;
 
   memset (state, 0, sizeof (compiler_state_t));
+  state->if_counter = 0;
   state->line_number = 1;
   state->not_counter = 0;
   state->if_counter = 0;
@@ -47,6 +48,7 @@ translate_token(const char *token)
 {
   if (token == NULL) return OP_UNKNOWN;
   
+  // Operators
   if (!strcmp (token, "+")) return OP_PLUS;
   else if (!strcmp (token, "-")) return OP_MINUS;
   else if (!strcmp (token, "/")) return OP_DIV;
@@ -59,11 +61,15 @@ translate_token(const char *token)
   else if (!strcmp (token, ">=")) return OP_GTE;
   else if (!strcmp (token, "!")) return OP_NOT;
   else if (!strcmp (token, "r=")) return OP_TOREG;
+
+  // Stack operations
   else if (!strcmp (token, ".")) return OP_DUMP;
   else if (!strcmp (token, "swap")) return OP_SWAP;
   else if (!strcmp (token, "drop")) return OP_DROP;
   else if (!strcmp (token, "dup")) return OP_DUP;
   else if (!strcmp (token, "rot")) return OP_ROT;
+
+  // Keywords
   else if (!strcmp (token, "if")) return OP_IF;
   else if (!strcmp (token, "else")) return OP_ELSE;
   else if (!strcmp (token, "{")) return OP_BEGIN;
@@ -74,6 +80,9 @@ translate_token(const char *token)
   else if (!strcmp (token, "syscall")) return OP_SYSCALL;
   else if (!strcmp (token, "while")) return OP_WHILE;
   else if (!strcmp (token, "do")) return OP_DO;
+  else if (!strcmp (token, "mem")) return OP_MEM;
+  else if (!strcmp (token, "load8")) return OP_LOAD8;
+  else if (!strcmp (token, "store8")) return OP_STORE8;
   else if (is_valid_number (token)) return OP_PUSH;
   else return OP_UNKNOWN;
 }
@@ -238,41 +247,57 @@ compile_token (compiler_state_t *state, const char *token)
     }
     case OP_IF:
     {
-      if (state->stack_depth < 1)
-      {
-        log_error (ERROR_EMPTY_STACK,
-                   "No condition for if statement", state->line_number);
-        state->has_error = true;
-        return false;
-      }
-      state->stack_depth--;
-      fprintf (state->output_file,
-              ";; If block\n"
-              "\tpop rax\n"
-              "\tcmp rax, 0\n"
-              "\tjz .else_%d\n"
-              ".if_%d:\n", state->if_counter, state->if_counter);
-      state->spotted.if_spotted = true;
-      state->if_counter++;
-      break;
+        if (state->stack_depth < 1)
+        {
+            log_error (ERROR_EMPTY_STACK,
+                       "No condition for if statement", state->line_number);
+            state->has_error = true;
+            return false;
+        }
+        state->stack_depth--;
+    
+        fprintf (state->output_file,
+               ";; If block\n"
+               "\tpop rax\n"
+               "\tcmp rax, 0\n"
+               "\tjz .else_%d\n"
+               ".if_%d:\n", state->if_counter, state->if_counter);
+
+        state->spotted.if_spotted = true;
+        state->if_counter++;
+        break;
     }
     case OP_ELSE:
     {
-      if (!state->spotted.if_spotted)
-      {
-        log_error (ERROR_INVALID_SYNTAX,
-                    "'else' must be used after 'if'", state->line_number);
-        return false;
-      }
-      fprintf (state->output_file,
-              ";; Else block\n"
-              "\tjmp .endif_%d\n"
-              ".else_%d:\n", state->if_counter-1, state->if_counter-1);
-      break;
+        if (!state->spotted.if_spotted)
+        {
+            log_error (ERROR_INVALID_SYNTAX,
+                      "'else' must be used after 'if'", state->line_number);
+            return false;
+        }
+    
+        fprintf (state->output_file,
+               ";; Else block\n"
+               "\tjmp .endif_%d\n"
+               ".else_%d:\n", state->if_counter, state->if_counter);
+        break;
+    }
+
+    case OP_ENDIF:
+    {
+        if (!state->spotted.if_spotted)
+        {
+            log_error (ERROR_INVALID_SYNTAX,
+                      "What endif? Where is if?", state->line_number);
+            return false;
+        }
+        state->spotted.if_spotted = false;
+        fprintf (state->output_file, ";; End\n.endif_%d:\n", state->if_counter);
+        break;
     }
     case OP_WHILE:
     {
-        fprintf(state->output_file,
+        fprintf (state->output_file,
                 ";; While loop start\n"
                 ".while_%d:\n",
                 state->while_counter);
@@ -284,14 +309,14 @@ compile_token (compiler_state_t *state, const char *token)
     {
         if (state->stack_depth < 1)
         {
-            log_error(ERROR_EMPTY_STACK,
+            log_error (ERROR_EMPTY_STACK,
                       "No condition for do", state->line_number);
             state->has_error = true;
             return false;
         }
         state->stack_depth--;
     
-        fprintf(state->output_file,
+        fprintf (state->output_file,
                 ";; Do condition check\n"
                 "\tpop rax\n"
                 "\tcmp rax, 0\n"
@@ -306,21 +331,9 @@ compile_token (compiler_state_t *state, const char *token)
         }
         break;
     }
-    case OP_ENDIF:
-    {
-      if (!state->spotted.if_spotted)
-      {
-        log_error (ERROR_INVALID_SYNTAX,
-                    "What endif? Where is if?", state->line_number);
-        return false;
-      }
-      fprintf (state->output_file, ";; End\n.endif_%d:\n", state->if_counter-1);
-      state->spotted.if_spotted = false;
-      break;
-    }
     case OP_ENDWHILE:
     {
-        fprintf(state->output_file,
+        fprintf (state->output_file,
                 ";; End of loop - jump back\n"
                 "\tjmp .while_%d\n"
                 ".while_end_%d:\n",
@@ -334,6 +347,45 @@ compile_token (compiler_state_t *state, const char *token)
         state->spotted.while_spotted = false;
         state->while_counter--;
         break;
+    }
+    case OP_MEM:
+    {
+      fputs ("\tpush mem\n", state->output_file);
+      state->stack_depth++;
+      break;
+    }
+    case OP_LOAD8:
+    {
+      if (state->stack_depth < 1)
+      {
+          log_error (ERROR_EMPTY_STACK,
+                    string_format ("%d", token), state->line_number);
+          state->has_error = true;
+          return false;
+      }
+      state->stack_depth--;
+      fputs ("\n"
+             "\tpop rax\n"
+             "\txor rbx, rbx\n"
+             "\tmov bl, [rax]\n"
+             "\tpush rbx\n", state->output_file);
+      break;
+    }
+    case OP_STORE8:
+    {
+      if (state->stack_depth < 2)
+      {
+          log_error (ERROR_EMPTY_STACK,
+                    string_format ("%d", token), state->line_number);
+          state->has_error = true;
+          return false;
+      }
+      state->stack_depth -= 2;
+      fputs ("\n"
+             "\tpop rbx\n"
+             "\tpop rax\n"
+             "\tmov [rax], bl\n", state->output_file);
+      break;
     }
     case OP_BEGIN:
     {

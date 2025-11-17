@@ -6,6 +6,7 @@
 #include "compiler.h"
 
 #define DEFAULT_CODE_BUF_SIZE 1024
+#define MEM_CAPACITY "640000\n"
 
 bool no_banner = false; // WHAT ??? DAS IST EIN GLOBAL VARIABLE ???
 
@@ -82,6 +83,9 @@ main (int argc, char **argv)
   }
 
   fputs ("\tcall exit\n", state.output_file);
+
+  fputs ("segment readable writeable\n", state.output_file);
+  fputs ("mem: rb " MEM_CAPACITY, state.output_file);
   
   free (code_buf);
   fclose (state.input_file);
@@ -89,6 +93,7 @@ main (int argc, char **argv)
   
   printf ("Compilation successful: %s -> %s\n\t(executable generated)\n", argv[1], argv[2]);
   system (string_format ("fasm %s > /dev/null", argv[2]));
+  system (string_format ("chmod +x %s", argv[2]));
   return EXIT_SUCCESS;
 }
 
@@ -125,98 +130,130 @@ process_line (compiler_state_t *state, char *line)
   return true;
 }
 
-void
-imm_mode()
+void imm_mode()
 {
-  if (!no_banner)
-  {
-    puts("\033[33mWARNING\033[0m:\nThis is not an interpreter.\n"
-         "All your input compiles to native assembly\n"
-         "in fly and writes to the ./lilang_temp_output_imm_mode.asm\n"
-         "and lilang_temp_output_imm_mode_output.\n"
-         "1: ASCII text, 2: binary file.\n"
-         "To exit properly with this file removed, you must type\n"
-         "':exit'\n");
-  }
-
-  compiler_state_t state = { 0 };
-  if (initialize_compiler (&state) != COMPILER_SUCCESS)
-  {
-    puts ("Failed to initialize compiler");
-    return;
-  }
-
-  state.output_file = fopen ("lilang_temp_output_imm_mode.asm", "w");
-  if (state.output_file == NULL)
-  {
-    puts ("Failed to open output file");
-    return;
-  }
-
-  char *code_buf = malloc (DEFAULT_CODE_BUF_SIZE);
-  if (code_buf == NULL)
-  {
-    puts ("Failed to allocate memory");
-    fclose (state.output_file);
-    return;
-  }
-
-  bool running = true;
-
-  while (running)
-  {
-    printf ("> ");
-    fflush (stdout);
-    
-    if (fgets (code_buf, DEFAULT_CODE_BUF_SIZE, stdin) == NULL)
+    if (!no_banner)
     {
-      puts ("Error reading input");
-      break;
+        puts("\033[33mWARNING\033[0m: This is not an interpreter.\n"
+             "All your input compiles to native assembly "
+             "in fly and writes to the ./lilang_temp_output_imm_mode.asm "
+             "and lilang_temp_output_imm_mode_output.\n"
+             "1: ASCII text, 2: binary file.\n"
+             "Commands:\n"
+             ":run - compile and run program\n"
+             ":exit - exit properly\n");
     }
 
-    process_line (&state, code_buf);
-    
-    if (strcmp (code_buf, ":exit") == 0)
+    compiler_state_t state = {0};
+    if (initialize_compiler (&state) != COMPILER_SUCCESS)
     {
-      running = false;
-      continue;
+        puts ("Failed to initialize compiler");
+        return;
     }
 
-    if (code_buf[0] != '\0' && code_buf[0] != '\n')
-    {
-      fputs ("\tcall exit\n", state.output_file);
-      fflush (state.output_file);
-
-      int assemble_result = system ("fasm lilang_temp_output_imm_mode.asm > /dev/null 2>&1");
-      if (assemble_result == 0)
-      {
-        system ("chmod +x lilang_temp_output_imm_mode");
-        int run_result = system ("./lilang_temp_output_imm_mode");
-        printf ("[%d]", WEXITSTATUS (run_result));
-      }
-      else
-      {
-        puts ("[Assembly failed]");
-      }
-    }
-
-    fclose (state.output_file);
     state.output_file = fopen ("lilang_temp_output_imm_mode.asm", "w");
     if (state.output_file == NULL)
     {
-      puts ("Failed to reopen output file");
-      break;
+        puts ("Failed to open output file");
+        return;
     }
 
-    state.has_error = false;
-    state.stack_depth = 0;
-    state.current_register = 0;
-    
-    write_ass_header (&state);
-  }
+    char *code_buf = malloc (DEFAULT_CODE_BUF_SIZE);
+    if (code_buf == NULL)
+    {
+        puts ("Failed to allocate memory");
+        fclose (state.output_file);
+        return;
+    }
 
-  fclose (state.output_file);
-  free (code_buf);
-  remove ("./lilang_temp_output_imm_mode.asm");
-  remove ("./lilang_temp_output_imm_mode");
+    write_ass_header (&state);
+    
+    bool running = true;
+    bool has_valid_code = false;
+
+    while (running)
+    {
+        printf ("> ");
+        fflush (stdout);
+        
+        if (fgets (code_buf, DEFAULT_CODE_BUF_SIZE, stdin) == NULL)
+        {
+            puts ("Error reading input");
+            break;
+        }
+
+        code_buf[strcspn (code_buf, "\n")] = '\0';
+
+        if (code_buf[0] == '\0')
+            continue;
+
+        if (!strcmp (code_buf, ":exit"))
+        {
+            running = false;
+            continue;
+        }
+
+        if (!strcmp (code_buf, ":run"))
+        {
+            if (has_valid_code)
+            {
+                fputs ("\tcall exit\n", state.output_file);
+                fputs ("segment readable writeable\n", state.output_file);
+                fputs ("mem: rb " MEM_CAPACITY, state.output_file);
+                fflush (state.output_file);
+
+                int assemble_result = system ("fasm lilang_temp_output_imm_mode.asm > /dev/null 2>&1");
+                if (assemble_result == 0)
+                {
+                    system ("chmod +x lilang_temp_output_imm_mode");
+                    int run_result = system ("./lilang_temp_output_imm_mode");
+                    printf ("[%d]", WEXITSTATUS (run_result));
+                }
+                else
+                {
+                    puts ("[Assembly failed]");
+                }
+            }
+            else
+            {
+                puts ("[No code to run]");
+            }
+
+            fclose (state.output_file);
+            state.output_file = fopen ("lilang_temp_output_imm_mode.asm", "w");
+            if (state.output_file == NULL)
+            {
+                puts ("Failed to reopen output file");
+                break;
+            }
+
+            state.has_error = false;
+            state.stack_depth = 0;
+            state.current_register = 0;
+            
+            write_ass_header (&state);
+            has_valid_code = false;
+            
+            continue;
+        }
+
+        process_line (&state, code_buf);
+        
+        if (state.has_error)
+        {
+            puts ("[Compilation error]");
+            state.has_error = false;
+            state.stack_depth = 0;
+            state.current_register = 0;
+        }
+        else
+        {
+            has_valid_code = true;
+        }
+    }
+
+    fclose (state.output_file);
+    free (code_buf);
+    remove ("./lilang_temp_output_imm_mode.asm");
+    remove ("./lilang_temp_output_imm_mode");
 }
